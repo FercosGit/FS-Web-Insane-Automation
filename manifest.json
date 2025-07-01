@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "CSS SourceTitle Finder",
+  "version": "1.0",
+  "description": "Konzolra írja a cssSourceTitle osztályú elemek tartalmát.",
+  "permissions": ["scripting", "activeTab"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_title": "Keresés indítása",
+    "default_icon": "beta_icon512.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
