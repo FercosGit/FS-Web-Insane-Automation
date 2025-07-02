@@ -2,6 +2,10 @@
 // eventype működik
 // eventlabel tesztelés
 
+  function clearObject(obj) {
+    Object.keys(obj).forEach(k => delete obj[k]);
+  }
+
   function processBaptismOrBirth() {
     const rows = document.querySelectorAll('table tr');
     const data = {};
