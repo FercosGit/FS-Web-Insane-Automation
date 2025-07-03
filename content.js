@@ -2,10 +2,34 @@
 // eventype működik
 // eventlabel tesztelés
 
+// assist functions
+function delay(minMs, maxMs) {
+  const ms = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
   function clearObject(obj) {
     Object.keys(obj).forEach(k => delete obj[k]);
   }
 
+function waitForAllElements(selectors, timeout = 4000, interval = 200) {
+  return new Promise(resolve => {
+    const start = Date.now();
+    const check = () => {
+      const allPresent = selectors.every(sel => document.querySelector(sel));
+      if (allPresent) {
+        resolve(true);
+      } else if (Date.now() - start >= timeout) {
+        resolve(false);
+      } else {
+        setTimeout(check, interval);
+      }
+    };
+    check();
+  });
+}
+
+//data process functions
   function processBaptismOrBirth() {
     const rows = document.querySelectorAll('table tr');
     const data = {};
@@ -28,7 +52,7 @@
     });
 
     // Debug
-    console.log(data);
+    console.log("data tartalma", data);
 
     const name = data["név"] || "";
     const genderRaw = data["nem"] || "";
@@ -80,10 +104,6 @@ function detectEventType() {
     return "";
 }
 
-function delay(minMs, maxMs) {
-  const ms = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 function processSourceContent() {
   let eventType = "";
@@ -130,22 +150,6 @@ function processSourceContent() {
   return { eventType, eventLabel, eventFound };
 }
 
-function waitForAllElements(selectors, timeout = 4000, interval = 200) {
-  return new Promise(resolve => {
-    const start = Date.now();
-    const check = () => {
-      const allPresent = selectors.every(sel => document.querySelector(sel));
-      if (allPresent) {
-        resolve(true);
-      } else if (Date.now() - start >= timeout) {
-        resolve(false);
-      } else {
-        setTimeout(check, interval);
-      }
-    };
-    check();
-  });
-}
 
 async function processSourcesList() {
   const results = []; // To log each source's status
