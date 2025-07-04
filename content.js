@@ -218,8 +218,39 @@ async function processSourceList() {
     }
 
     // Feldolgozás
-    const content = processSourceContent();
-    console.log(`[process] ${id}:`, content);
+    // Wait and check for source body and add-button to appear (max 2s)
+    console.log("wait for open down source panel");
+	const success = await waitForAllElements([
+      "div[class^='cssSourcePanelOpen_']",
+	  //"div[class^='cssSourceBody_']",
+	  "tbody"
+      // "button[data-testid='view-edit-notes-add-button']"
+    ], 5000);
+    //console.log("success", success); //debug
+    //await delay(1000, 1500);
+
+    let eventType = "";
+    let eventLabel = "";
+    let eventFound = false;
+
+    if (success) {
+      const result = processSourceContent();
+      eventType = result.eventType;
+      eventLabel = result.eventLabel;
+      eventFound = result.eventFound;
+    }
+
+    results.push({
+      title: titleText,
+      loaded: success,
+      eventFound,
+      eventType,
+      eventLabel
+    });
+
+  // console.log("[processSourceList] Talált rekordok:", result);
+
+  // console.log("Eredmények:", results);
 
     //  Zárás
     button.click();
