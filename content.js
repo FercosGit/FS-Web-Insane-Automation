@@ -29,6 +29,31 @@ function waitForAllElements(selectors, timeout = 4000, interval = 200) {
   });
 }
 
+function waitForDomStabilization(targetElement, quietPeriod = 300) {
+  return new Promise(resolve => {
+    let timer;
+
+    const observer = new MutationObserver((mutationsList) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        observer.disconnect();
+        console.log("[Observer] DOM stabilizálódott – feltételezhetően betöltődött.");
+        resolve();
+      }, quietPeriod);
+    });
+
+    observer.observe(targetElement, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true
+    });
+
+    console.log("[Observer] Figyelés elindítva...");
+  });
+}
+
+
 //data process functions
   function processBaptismOrBirth() {
     const rows = document.querySelectorAll('table tr');
@@ -152,24 +177,68 @@ function processSourceContent() {
 
 
 async function processSourcesList() {
-  const results = []; // To log each source's status
-  const sourceItems = Array.from(document.querySelectorAll("div[class^='cssNarrowSourceGrid_'], div[class^='cssSourceGridNarrow_'], div[class^='cssSourceGrid_']"));
+  const result = [];
 
-  for (const item of sourceItems) {
-    const titleDiv = item.querySelector("div[class^='cssSourceTitle_'] div");
-    const titleText = titleDiv?.innerText.trim();
-    if (!titleText) continue;
+  const container = document.querySelector("div[class^='cssSourceSpacing_']");
+  if (!container) {
+    console.warn("[processSourceList] Nem található cssSourceSpacing_ blokk.");
+    return;
+  }
 
-    // Click to expand
-    item.click();
+  const children = Array.from(container.children);
 
-    // Wait and check for source body and add-button to appear (max 2s)
-    const success = await waitForAllElements([
-      "div[class^='cssSourceBody_']",
-	  "tbody"
+for (const child of children) {
+  const id = child.id;
+  if (!id) continue;
+
+  const idPattern = /^[A-Z0-9]{4}-[A-Z0-9]{3}$/i;
+  if (!idPattern.test(id)) continue;
+
+  const titleElement = child.querySelector("div[class^='cssSourceTitle_']");
+  const title = titleElement ? titleElement.textContent.trim() : "";
+
+  result.push({ id, title });
+
+  const titleDiv = titleElement?.querySelector("div");
+  const titleText = titleDiv?.innerText.trim();
+
+  if (titleText) {
+    const button = child.querySelector("button");
+    if (button) {
+      button.click();
+      console.log(`[click] Kattintottam a gombra a címnél: ${titleText}`);
+    } else {
+      console.warn(`[click] Nem található gomb a rekordban: ${titleText}`);
+    }
+    await delay(300);
+  }
+
+// ide beillesztem a DOM figyelést
+const target = document.querySelector("div[class^='cssSourceBody_']");
+if (target) {
+  waitForDomStabilization(target).then(() => {
+    console.log("[Kész] Az új adatblokk valószínűleg teljesen betöltődött.");
+    // Itt folytathatsz feldolgozást, kiolvasást, stb.
+  });
+} else {
+  console.warn("Nem található a megfigyelendő blokk.");
+}
+
+// bezárom a forrást
+//await delay(1000);
+//button.click();
+console.log(`[click] Újra attintottam a gombra a címnél: ${titleText}`);
+
+/* régi kód   
+   // Wait and check for source body and add-button to appear (max 2s)
+    console.log("wait for open down source panel");
+	const success = await waitForAllElements([
+      "div[class^='cssSourcePanelOpen_']",
+	  //"div[class^='cssSourceBody_']",
+	  //"tbody"
       // "button[data-testid='view-edit-notes-add-button']"
     ], 7000);
-	console.log("success", success); //debug
+	//console.log("success", success); //debug
     //await delay(1000, 1500);
 
     let eventType = "";
@@ -195,7 +264,11 @@ async function processSourcesList() {
     await delay(1000, 1500);
     item.click();
     await delay(500, 800); // Small gap before next iteration
-  }
+
+*/
+}
+
+  console.log("[processSourceList] Talált rekordok:", result);
 
   console.log("Eredmények:", results);
 }
