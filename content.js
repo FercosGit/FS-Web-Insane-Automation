@@ -8,9 +8,9 @@ function delay(minMs, maxMs) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-  function clearObject(obj) {
-    Object.keys(obj).forEach(k => delete obj[k]);
-  }
+function clearObject(obj) {
+  Object.keys(obj).forEach(k => delete obj[k]);
+}
 
 function waitForAllElements(selectors, timeout = 4000, interval = 200) {
   return new Promise(resolve => {
@@ -49,14 +49,15 @@ function waitForDomStabilization(targetElement, quietPeriod = 300) {
       attributes: true
     });
 
-    console.log("[Observer] Figyelés elindítva...");
+    console.log("[Observer] DOM változás figyelés elindítva...");
   });
 }
 
 
 //data process functions
   function processBaptismOrBirth() {
-    const rows = document.querySelectorAll('table tr');
+    console.log("keresztelő vagy születés esemény feldolgozása...");
+	const rows = document.querySelectorAll('table tr');
     const data = {};
     const links = {};
 
@@ -77,7 +78,7 @@ function waitForDomStabilization(targetElement, quietPeriod = 300) {
     });
 
     // Debug
-    console.log("data tartalma", data);
+    // console.log("data tartalma", data);
 
     const name = data["név"] || "";
     const genderRaw = data["nem"] || "";
@@ -115,6 +116,7 @@ function waitForDomStabilization(targetElement, quietPeriod = 300) {
         output: out
       };
     });
+    console.log("...keresztelő vagy születés esemény feldolgozása befejeződött.");
   }
 
 function detectEventType() {
@@ -150,11 +152,11 @@ function processSourceContent() {
 	eventLabel = "házasság";
     //sendStatisticEvent("resolved_event_" + eventTypeRaw.trim().toLowerCase().replace(/\s+/g, "_"), window.location.href);
   } else if (["baptism", "keresztelő", "birth registration"].some(k => eventType.includes(k))) {
-    console.log("process baptism hívása");
+    //console.log("process baptism hívása");
 	const choices = processBaptismOrBirth();
-	console.log("process baptism vége van", choices);
+	//console.log("process baptism vége van", choices);
 	const defaultIdx = choices.findIndex(c => c.isDefault);
-	console.log("defaultidx", defaultIdx);
+	//console.log("defaultidx", defaultIdx);
     eventFound = true;
 	eventLabel = choices[defaultIdx].output;    
     //sendStatisticEvent("resolved_event_" + eventTypeRaw.trim().toLowerCase().replace(/\s+/g, "_"), window.location.href);
@@ -177,7 +179,7 @@ function processSourceContent() {
 
 
 async function processSourceList() {
-  const result = [];
+  const results = {};
 
   const container = document.querySelector("div[class^='cssSourceSpacing_']");
   if (!container) {
@@ -197,13 +199,17 @@ async function processSourceList() {
     const titleElement = child.querySelector("div[class^='cssSourceTitle_']");
     const title = titleElement ? titleElement.textContent.trim() : "";
 
-    result.push({ id, title });
+    //result.push({ id, title });
 
     const button = child.querySelector("button");
-    if (!button) {
+    const isButton = true;
+	if (!button) {
+	  isButton = false;	
       console.warn(`[click] Nincs gomb: ${id}`);
       continue;
     }
+	
+	//result.push({ isButton });
 
     // Nyitás
     button.click();
@@ -217,9 +223,10 @@ async function processSourceList() {
       console.warn(`[wait] Nincs body blokk: ${id}`);
     }
 
+    let indexed = false;
     // Feldolgozás
     // Wait and check for source body and add-button to appear (max 2s)
-    console.log("wait for open down source panel");
+    console.log("[processSourceList] Várakozás forrás panel adatok elérhetőségére...");
 	const success = await waitForAllElements([
       "div[class^='cssSourcePanelOpen_']",
 	  //"div[class^='cssSourceBody_']",
@@ -234,21 +241,27 @@ async function processSourceList() {
     let eventFound = false;
 
     if (success) {
-      const result = processSourceContent();
-      eventType = result.eventType;
-      eventLabel = result.eventLabel;
-      eventFound = result.eventFound;
+	  console.log("[processSourceList] ...forrásadatok elérhetőek");
+      const SourceContent = processSourceContent();
+	  indexed = true;
+      eventType = SourceContent.eventType;
+      eventLabel = SourceContent.eventLabel;
+      eventFound = SourceContent.eventFound;
     }
-
-    results.push({
-      title: titleText,
-      loaded: success,
+	//result.push({ eventFound, eventType, eventLabel });
+    results[id]. = {
+      idtext: id,
+      titletext: titleText,
+      isbutton: isButton,
+      indexed,
       eventFound,
       eventType,
       eventLabel
-    });
+    };
+	console.log("[processSourceList] forrás feldolgozás eredménye:", results[id]);
+   
 
-  // console.log("[processSourceList] Talált rekordok:", result);
+  // console.log("[processSourceList] Talált rekordok:", result); result
 
   // console.log("Eredmények:", results);
 
