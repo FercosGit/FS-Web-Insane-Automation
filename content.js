@@ -176,7 +176,7 @@ function processSourceContent() {
 }
 
 
-async function processSourcesList() {
+async function processSourceList() {
   const result = [];
 
   const container = document.querySelector("div[class^='cssSourceSpacing_']");
@@ -187,91 +187,50 @@ async function processSourcesList() {
 
   const children = Array.from(container.children);
 
-for (const child of children) {
-  const id = child.id;
-  if (!id) continue;
+  for (const child of children) {
+    const id = child.id;
+    if (!id) continue;
 
-  const idPattern = /^[A-Z0-9]{4}-[A-Z0-9]{3}$/i;
-  if (!idPattern.test(id)) continue;
+    const idPattern = /^[A-Z0-9]{4}-[A-Z0-9]{3}$/i;
+    if (!idPattern.test(id)) continue;
 
-  const titleElement = child.querySelector("div[class^='cssSourceTitle_']");
-  const title = titleElement ? titleElement.textContent.trim() : "";
+    const titleElement = child.querySelector("div[class^='cssSourceTitle_']");
+    const title = titleElement ? titleElement.textContent.trim() : "";
 
-  result.push({ id, title });
+    result.push({ id, title });
 
-  const titleDiv = titleElement?.querySelector("div");
-  const titleText = titleDiv?.innerText.trim();
-
-  if (titleText) {
     const button = child.querySelector("button");
-    if (button) {
-      button.click();
-      console.log(`[click] Kattintottam a gombra a címnél: ${titleText}`);
-    } else {
-      console.warn(`[click] Nem található gomb a rekordban: ${titleText}`);
+    if (!button) {
+      console.warn(`[click] Nincs gomb: ${id}`);
+      continue;
     }
-    await delay(300);
+
+    // Nyitás
+    button.click();
+    console.log(`[click] Nyitás: ${title}`);
+
+    // Várjuk a DOM stabilizálódását
+    const body = document.querySelector("div[class^='cssSourceBody_']");
+    if (body) {
+      await waitForDomStabilization(body);
+    } else {
+      console.warn(`[wait] Nincs body blokk: ${id}`);
+    }
+
+    // Feldolgozás
+    const content = processSourceContent();
+    console.log(`[process] ${id}:`, content);
+
+    //  Zárás
+    button.click();
+    console.log(`[click] Zárás: ${title}`);
+
+    await delay(300, 600); // várakozás emberi módon
   }
 
-// ide beillesztem a DOM figyelést
-const target = document.querySelector("div[class^='cssSourceBody_']");
-if (target) {
-  waitForDomStabilization(target).then(() => {
-    console.log("[Kész] Az új adatblokk valószínűleg teljesen betöltődött.");
-    // Itt folytathatsz feldolgozást, kiolvasást, stb.
-  });
-} else {
-  console.warn("Nem található a megfigyelendő blokk.");
+  console.log("[processSourceList] Minden forrás feldolgozva.");
 }
 
-// bezárom a forrást
-//await delay(1000);
-//button.click();
-console.log(`[click] Újra attintottam a gombra a címnél: ${titleText}`);
-
-/* régi kód   
-   // Wait and check for source body and add-button to appear (max 2s)
-    console.log("wait for open down source panel");
-	const success = await waitForAllElements([
-      "div[class^='cssSourcePanelOpen_']",
-	  //"div[class^='cssSourceBody_']",
-	  //"tbody"
-      // "button[data-testid='view-edit-notes-add-button']"
-    ], 7000);
-	//console.log("success", success); //debug
-    //await delay(1000, 1500);
-
-    let eventType = "";
-    let eventLabel = "";
-    let eventFound = false;
-
-    if (success) {
-      const result = processSourceContent();
-      eventType = result.eventType;
-      eventLabel = result.eventLabel;
-      eventFound = result.eventFound;
-    }
-
-    results.push({
-      title: titleText,
-      loaded: success,
-      eventFound,
-      eventType,
-      eventLabel
-    });
-
-    // Wait before deactivating
-    await delay(1000, 1500);
-    item.click();
-    await delay(500, 800); // Small gap before next iteration
-
-*/
-}
-
-  console.log("[processSourceList] Talált rekordok:", result);
-
-  console.log("Eredmények:", results);
-}
 
 /*
 function waitForElement(selector, timeout = 2000, interval = 100) {
