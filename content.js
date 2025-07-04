@@ -281,4 +281,4 @@ function waitForElement(selector, timeout = 2000, interval = 100) {
 }
 */
 
-processSourcesList();
+processSourceList();
