@@ -1,13 +1,64 @@
 // content.js
+// version v0.9 beta
 // process source list ok
 // process source content ok
 // process baptism ok
 // process death ok
 // process marriage ok
+// source edit OK
+// autosaveenabled hardcoded
 
 
 // assist functions
- function getAutoSaveEnabled() {
+function showAlert(message, duration = 3000) {
+  return new Promise(resolve => {
+    const alertBox = document.createElement('div');
+    alertBox.style.position = 'fixed';
+    alertBox.style.top = '20px';
+    alertBox.style.left = '50%';
+    alertBox.style.transform = 'translateX(-50%)'; // középre igazítás
+    alertBox.style.width = '320px';
+    alertBox.style.backgroundColor = '#ffcc00';
+    alertBox.style.color = '#000';
+    alertBox.style.fontWeight = 'bold';
+    alertBox.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
+    alertBox.style.zIndex = '9999';
+    alertBox.style.borderRadius = '8px';
+    alertBox.style.pointerEvents = 'none';
+    alertBox.style.overflow = 'hidden';
+    alertBox.style.fontSize = '14px';
+    alertBox.style.textAlign = 'center';
+	
+    // Szöveges tartalom
+    const text = document.createElement('div');
+    text.style.padding = '12px 16px';
+    text.textContent = message;
+
+    // Folyamatcsík
+    const bar = document.createElement('div');
+    bar.style.height = '4px';
+    bar.style.backgroundColor = '#444';
+    bar.style.width = '100%';
+    bar.style.transition = `width linear ${duration}ms`;
+
+    alertBox.appendChild(text);
+    alertBox.appendChild(bar);
+    document.body.appendChild(alertBox);
+
+    // Trigger width reduction a következő tickben
+    requestAnimationFrame(() => {
+      bar.style.width = '0%';
+    });
+
+    setTimeout(() => {
+      alertBox.remove();
+      resolve();
+    }, duration);
+  });
+}
+
+
+function getAutoSaveEnabled() {
   return new Promise(resolve => {
     chrome.storage.local.get('autoSaveEnabled', data => {
       resolve(!!data.autoSaveEnabled);
@@ -80,6 +131,8 @@ function waitForDomStabilization(targetElement, quietPeriod = 300) {
       const value = td?.innerText?.trim();
 
       if (th === "név" && value) {
+		const missingName = data["név"];
+		const missingLink = links["név"];
         clearObject(data);
         clearObject(links);
       }
@@ -89,9 +142,22 @@ function waitForDomStabilization(targetElement, quietPeriod = 300) {
         links[th] = !!td.querySelector('a');
       }
     });
-
+    
+	// no data[név] 
+    if ( !data["anya neve"] ) { 
+		console.log("nincs anya neve"); 
+		data["anya neve"] = missingName; 
+		links["anya neve"] = missingLink; 
+		}
+		
+	if ( !data["apa neve"] ) { 
+		console.log("nincs apa neve, missingName:", missingName ); 
+		data["apa neve"] = missingName; 
+		links["apa neve"] = missingLink; 
+		}
+	
     // Debug
-    // console.log("data tartalma", data);
+    console.log("[processBaptismOrBirth] data tartalma", data);
 
     const name = data["név"] || "";
     const genderRaw = data["nem"] || "";
@@ -299,6 +365,7 @@ async function simulateEditAndFillSourceTitle(newValue = "vajon sikerült a szö
         alert("Nem található a 'Forrás címe' mező.");
         return false;
     }
+	await delay(500,600); //let time for input filed to be able to accept data
     // 3. Fill in and trigger input/change events
     const input = document.querySelector('input[data-testid="source-title-field"]');
     input.value = newValue;
@@ -306,8 +373,25 @@ async function simulateEditAndFillSourceTitle(newValue = "vajon sikerült a szö
     input.dispatchEvent(new Event('change', { bubbles: true }));
 
     // 4. Check autosave, and click Save if enabled
-	// for debug only
-	const autoSaveEnabled = false;
+	const autoSaveEnabled = true;
+	if (!autoSaveEnabled) {
+		await showAlert("Szerkesztés lehetséges mentés előtt...", 5000);
+	} else {
+		await showAlert("Új forrás cím mentése...", 1000);
+	}
+	const saveButton = document.querySelector('[data-testid="source-save-button"]');
+        if (
+            saveButton &&
+            !saveButton.disabled &&
+            saveButton.offsetParent !== null &&
+            saveButton.getBoundingClientRect().height > 0
+        ) {
+            saveButton.click();
+        } else {
+            alert("A 'Mentés' gomb nem aktív vagy nem található.");
+        } 
+		
+	/* old save block turned off
 	if (autoSaveEnabled) {
     // for debug only if (await getAutoSaveEnabled()) {
         const saveButton = document.querySelector('[data-testid="source-save-button"]');
@@ -323,7 +407,10 @@ async function simulateEditAndFillSourceTitle(newValue = "vajon sikerült a szö
         }
     } else {
 		console.log("auto save disabled, waiting for user to close dialog...");
-		delay(5000,5500);
+		//await delay(5000,5500);
+		await showAlert("Szerkesztésre elvetése...", 5000);
+
+		// alert ("zárd be a szerkesztés ablakot");
        const cancelButton = document.querySelector('[data-testid="source-cancel-button"]');
         if (
             cancelButton &&
@@ -333,12 +420,12 @@ async function simulateEditAndFillSourceTitle(newValue = "vajon sikerült a szö
         ) {
             cancelButton.click();
         } else {
-            alert("A 'Elvetés' gomb nem aktív vagy nem található.");
+            alert("A szerkesztés ablak már be van zárva.");
 		}
 
-	}
+	} */
     // wait a bit to ensure the UI processed it
-    await delay(500, 800);
+    await delay(1600, 2000);
     return true;
 }
 
@@ -364,6 +451,7 @@ function processSourceContent() {
   // Processing logic (placeholder)
   eventTypeRaw = detectEventType();
   eventType = eventTypeRaw.toLowerCase();
+  console.log( "[processSourceContent] eventType:", eventType );
   
   // eventtype logic
   if (!eventTypeRaw) {
@@ -412,7 +500,6 @@ function processSourceContent() {
 
 async function processSourceList() {
   const results = {};
-
   const container = document.querySelector("div[class^='cssSourceSpacing_']");
   if (!container) {
     console.warn("[processSourceList] Nem található cssSourceSpacing_ blokk.");
@@ -420,11 +507,9 @@ async function processSourceList() {
   }
 
   const children = Array.from(container.children);
-
   for (const child of children) {
     const id = child.id;
     if (!id) continue;
-
     const idPattern = /^[A-Z0-9]{4}-[A-Z0-9]{3}$/i;
     if (!idPattern.test(id)) continue;
 
@@ -438,7 +523,6 @@ async function processSourceList() {
       console.warn(`[click] Nincs gomb: ${id}`);
       continue;
     }
-	
 
     // Nyitás
     button.click();
@@ -449,7 +533,7 @@ async function processSourceList() {
     if (body) {
       await waitForDomStabilization(body);
     } else {
-      console.warn(`[wait] Nincs body blokk: ${id}`);
+      console.warn(`[processSourceList] Nincs body blokk: ${id}`);
     }
 
     let indexed = false;
@@ -464,9 +548,7 @@ async function processSourceList() {
 	  "tbody"
       // "button[data-testid='view-edit-notes-add-button']"
     ], 2000);
-	//console.log("success", success); //debug
-    //await delay(1000, 1500);
-
+    await delay(1000,1300); //delay to let all tbody data downloaded
     let eventFound = false;
     let eventType = "";
     let newTitle = "";
@@ -491,18 +573,13 @@ async function processSourceList() {
 	console.log("[processSourceList] forrás feldolgozás eredménye:", results[id]);
    
     // esemény cím kitöltése
-	if ( newTitle !== originalTitle ) {
-	console.log( "új forráscímet készítettem");
+	if ( (newTitle !== originalTitle) && indexed ) {
+	console.log( ">>[processSourceList] új forráscímet készítettem");
 	await simulateEditAndFillSourceTitle(newTitle);
-	} else {
-	console.log( "eredeti forrás cím már megfelelő");
+	} else { 
+	if ( newTitle == originalTitle ) { console.log( ">>[processSourceList] Eredeti forrás cím már megfelelő"); };
+	if ( !indexed ) { console.log( ">>[processSourceList] Nincs elérhető indexelt adat"); };
 	}
-	
-
-
-  // console.log("[processSourceList] Talált rekordok:", result); result
-
-  // console.log("Eredmények:", results);
 
     //  Zárás
     button.click();
@@ -515,22 +592,6 @@ async function processSourceList() {
 }
 
 
-/*
-function waitForElement(selector, timeout = 2000, interval = 100) {
-  return new Promise(resolve => {
-    const start = Date.now();
-    const check = () => {
-      if (document.querySelector(selector)) {
-        resolve(true);
-      } else if (Date.now() - start >= timeout) {
-        resolve(false);
-      } else {
-        setTimeout(check, interval);
-      }
-    };
-    check();
-  });
-}
-*/
 
+//MAIN
 processSourceList();
