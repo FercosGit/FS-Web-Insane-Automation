@@ -278,7 +278,7 @@ function waitForDomStabilization(targetElement, quietPeriod = 300) {
     });
   }
 
-function simulateEditAndFillSourceTitle(newValue = "vajon sikerült a szöveg átírása?") {
+async function simulateEditAndFillSourceTitle(newValue = "vajon sikerült a szöveg átírása?") {
     // 1. Find visible 'Szerkesztés' (Edit) button and click it
     const buttons = Array.from(document.querySelectorAll('button[data-testid^="source-button_edit"]'));
     const visibleButton = buttons.find(btn =>
@@ -287,47 +287,42 @@ function simulateEditAndFillSourceTitle(newValue = "vajon sikerült a szöveg á
       btn.getBoundingClientRect().height > 0
     );
 
-    if (visibleButton) {
-      visibleButton.click();
-    } else {
-      alert("Nem található látható, aktív 'Szerkesztés' gomb.");
-	  const endOfEdit = true;
-      return{ endOfEdit };
+    if (!visibleButton) {
+        alert("Nem található látható, aktív 'Szerkesztés' gomb.");
+        return false;
     }
+    visibleButton.click();
 
-    // 2. Fill in the input and save, with delay for edit field to appear
-    setTimeout(async () => {
-      const input = document.querySelector('input[data-testid="source-title-field"]');
-      if (input) {
-        input.value = newValue;
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-      } else {
+    // 2. Wait for the input to appear (up to 2s)
+    const ok = await waitForAllElements(['input[data-testid="source-title-field"'], 2000, 100);
+    if (!ok) {
         alert("Nem található a 'Forrás címe' mező.");
-        const endOfEdit = true;
-        return{ endOfEdit };
-      }
+        return false;
+    }
+    // 3. Fill in and trigger input/change events
+    const input = document.querySelector('input[data-testid="source-title-field"]');
+    input.value = newValue;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
 
-      // 3. Find and click the Save button
-      // this block execution must depend on autoSaveEnabled option from options.html and options.js
-if (await getAutoSaveEnabled()) {
-  const saveButton = document.querySelector('[data-testid="source-save-button"]');
-  if (
-    saveButton &&
-    !saveButton.disabled &&
-    saveButton.offsetParent !== null &&
-    saveButton.getBoundingClientRect().height > 0
-  ) {
-    saveButton.click();
-  } else {
-    alert("A 'Mentés' gomb nem aktív vagy nem található.");
-  }
+    // 4. Check autosave, and click Save if enabled
+    if (await getAutoSaveEnabled()) {
+        const saveButton = document.querySelector('[data-testid="source-save-button"]');
+        if (
+            saveButton &&
+            !saveButton.disabled &&
+            saveButton.offsetParent !== null &&
+            saveButton.getBoundingClientRect().height > 0
+        ) {
+            saveButton.click();
+        } else {
+            alert("A 'Mentés' gomb nem aktív vagy nem található.");
+        }
+    }
+    // wait a bit to ensure the UI processed it
+    await delay(500, 800);
+    return true;
 }
-    }, 1000);
-    const endOfEdit = true;
-    return{ endOfEdit };
-  }
-
 
 function detectEventType() {
     const rows = document.querySelectorAll('table tr');
