@@ -306,7 +306,10 @@ async function simulateEditAndFillSourceTitle(newValue = "vajon sikerült a szö
     input.dispatchEvent(new Event('change', { bubbles: true }));
 
     // 4. Check autosave, and click Save if enabled
-    if (await getAutoSaveEnabled()) {
+	// for debug only
+	const autoSaveEnabled = false;
+	if (autoSaveEnabled) {
+    // for debug only if (await getAutoSaveEnabled()) {
         const saveButton = document.querySelector('[data-testid="source-save-button"]');
         if (
             saveButton &&
@@ -318,7 +321,22 @@ async function simulateEditAndFillSourceTitle(newValue = "vajon sikerült a szö
         } else {
             alert("A 'Mentés' gomb nem aktív vagy nem található.");
         }
-    }
+    } else {
+		console.log("auto save disabled, waiting for user to close dialog...");
+		delay(5000,5500);
+       const cancelButton = document.querySelector('[data-testid="source-cancel-button"]');
+        if (
+            cancelButton &&
+            !cancelButton.disabled &&
+            cancelButton.offsetParent !== null &&
+            cancelButton.getBoundingClientRect().height > 0
+        ) {
+            cancelButton.click();
+        } else {
+            alert("A 'Elvetés' gomb nem aktív vagy nem található.");
+		}
+
+	}
     // wait a bit to ensure the UI processed it
     await delay(500, 800);
     return true;
