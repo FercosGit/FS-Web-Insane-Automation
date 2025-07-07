@@ -1,12 +1,17 @@
 // content.js
-// version v0.9 beta
+// version v0.95 beta
 // process source list ok
 // process source content ok
 // process baptism ok
 // process death ok
 // process marriage ok
 // source edit OK
-// autosaveenabled hardcoded
+// autosaveenabled NO, hardcoded
+
+// hiba: 
+
+// új teszt funkció 
+// választéklista felépítése és egyes/többes feldolgozás választása ok
 
 
 // assist functions
@@ -124,16 +129,18 @@ function waitForDomStabilization(targetElement, quietPeriod = 300) {
 	const rows = document.querySelectorAll('table tr');
     const data = {};
     const links = {};
+	let missingName = "";
 
     rows.forEach(row => {
       const th = row.querySelector('th')?.innerText?.trim().toLowerCase();
       const td = row.querySelector('td');
       const value = td?.innerText?.trim();
-
+	  
+	  //console.log(th, value);
+	  
       if (th === "név" && value) {
-		const missingName = data["név"];
-		const missingLink = links["név"];
-        clearObject(data);
+		if (missingName == "") { missingName = value}; //ha index hiba miatt csak a fő táblán szerepel a szülő neve
+		clearObject(data);
         clearObject(links);
       }
 
@@ -143,21 +150,22 @@ function waitForDomStabilization(targetElement, quietPeriod = 300) {
       }
     });
     
-	// no data[név] 
+	// no data[apa/anya neve hiba kezelése] 
     if ( !data["anya neve"] ) { 
 		console.log("nincs anya neve"); 
 		data["anya neve"] = missingName; 
-		links["anya neve"] = missingLink; 
+		links["anya neve"] = false; 
 		}
 		
 	if ( !data["apa neve"] ) { 
 		console.log("nincs apa neve, missingName:", missingName ); 
 		data["apa neve"] = missingName; 
-		links["apa neve"] = missingLink; 
+		links["apa neve"] = false; 
 		}
 	
     // Debug
-    console.log("[processBaptismOrBirth] data tartalma", data);
+    //console.log("[processBaptismOrBirth] data tartalma", data);
+	//console.log("[processBaptismOrBirth] links tartalma", links);
 
     const name = data["név"] || "";
     const genderRaw = data["nem"] || "";
@@ -591,7 +599,158 @@ async function processSourceList() {
   console.log("[processSourceList] Minden forrás feldolgozva.");
 }
 
+async function processOneSource() {
+  const results = {};
+  const container = document.querySelector("div[class^='cssSourceSpacing_']");
+  if (!container) {
+    console.warn("[processOneSource] Nem található cssSourceSpacing_ blokk.");
+    return;
+  }
+
+  const openPanel = container.querySelector("div[class^='cssSourcePanelOpen_']");
+  if (!openPanel) {
+    console.warn("[processOneSource] Nincs nyitott panel.");
+    return;
+  }
+
+  // A nyitott panel szülője az azonosítóval rendelkező blokk
+  const sourceBlock = openPanel.closest("div[id]");
+  if (!sourceBlock) {
+    console.warn("[processOneSource] Nem található a nyitott panel szülő blokkja.");
+    return;
+  }
+
+  const id = sourceBlock.id;
+  const idPattern = /^[A-Z0-9]{4}-[A-Z0-9]{3}$/i;
+  if (!idPattern.test(id)) {
+    console.warn(`[processOneSource] Azonosító nem felel meg a mintának: ${id}`);
+    return;
+  }
+
+  const titleElement = sourceBlock.querySelector("div[class^='cssSourceTitle_']");
+  const originalTitle = titleElement ? titleElement.textContent.trim() : "";
+
+  const body = sourceBlock.querySelector("div[class^='cssSourceBody_']");
+  if (body) {
+    console.log(`[processOneSource] Van body blokk: ${id}`);
+	//await waitForDomStabilization(body);
+  } else {
+    console.warn(`[processOneSource] Nincs body blokk: ${id}`);
+  }
+
+  console.log("[processOneSource] Várakozás forrás panel adatok elérhetőségére...");
+  const indexedDataFound = await waitForAllElements([
+    "div[class^='cssSourcePanelOpen_']",
+    "tbody"
+  ], 2000);
+  await delay(1000, 1300); // extra várakozás
+
+  let indexed = false;
+  let eventFound = false;
+  let eventType = "";
+  let newTitle = "";
+
+  if (indexedDataFound) {
+    console.log("[processOneSource] ...forrásadatok elérhetőek");
+    const SourceContent = processSourceContent();
+    indexed = true;
+    eventFound = SourceContent.eventFound;
+    eventType = SourceContent.eventType;
+    newTitle = SourceContent.newTitle;
+  }
+
+  results[id] = {
+    FS_id: id,
+    originalTitle,
+    isButton: true,
+    indexed,
+    eventFound,
+    eventType,
+    newTitle
+  };
+
+  console.log("[processOneSource] forrás feldolgozás eredménye:", results[id]);
+
+  if ((newTitle !== originalTitle) && indexed) {
+    console.log(">>[processOneSource] új forráscímet készítettem");
+    await simulateEditAndFillSourceTitle(newTitle);
+  } else {
+    if (newTitle === originalTitle) {
+      console.log(">>[processOneSource] Eredeti forrás cím már megfelelő");
+    }
+    if (!indexed) {
+      console.log(">>[processOneSource] Nincs elérhető indexelt adat");
+    }
+  }
+
+  await delay(300, 600); // várakozás emberi módon
+
+  console.log("[processOneSource] Egyetlen forrás feldolgozva.");
+}
+
+
+async function scanSourcePanels() {
+  const results = {}; // Objektum, ahol az id a kulcs
+  let indexCounter = 0;
+
+  const container = document.querySelector("div[class^='cssSourceSpacing_']");
+  if (!container) {
+    console.warn("[scanSourcePanels] Nem található cssSourceSpacing_ blokk.");
+    return results;
+  }
+
+  const children = Array.from(container.children);
+  for (const child of children) {
+    const id = child.id;
+    if (!id) continue;
+    indexCounter++;
+    const idPattern = /^[A-Z0-9]{4}-[A-Z0-9]{3}$/i;
+    if (!idPattern.test(id)) continue;
+
+	const openPanel = child.querySelector("div[class^='cssSourcePanelOpen_']");
+	const closedPanel = child.querySelector("div[class^='cssSourcePanelClosed_']");
+	const isOpen = !!openPanel;
+
+    const titleElement = child.querySelector("div[class^='cssSourceTitle_']");
+    const title = titleElement ? titleElement.textContent.trim() : "";
+
+    const sourcePanelIndex = indexCounter.toString().padStart(4, '0');
+    
+
+    results[id] = {
+      id,
+      sourcePanelOpen: isOpen,
+      title,
+      sourcePanelIndex
+    };
+  }
+
+  console.log("[scanSourcePanels] Eredmények:", results);
+  return results;
+}
+
+async function handleSourceProcessing() {
+  const panelMap = await scanSourcePanels();
+
+  const openPanels = Object.values(panelMap).filter(item => item.sourcePanelOpen);
+  const count = openPanels.length;
+
+  console.log(`[handleSourceProcessing] Nyitott panelek száma: ${count}`);
+
+  if (count === 1) {
+    console.log("[handleSourceProcessing] Egy nyitott panel van → processOneSource() meghívása...");
+	showAlert("Elindítom az egyetlen nyitott forrás címének feldolgozását", 3000);	
+    await processOneSource();
+  } else if (count === 0) {
+    console.log("[handleSourceProcessing] Nincs nyitott panel → processSourceList() meghívása...");
+	showAlert("Elindítom az összes forrás cím feldolgozását", 3000);
+    await processSourceList();
+  } else {
+    console.warn("[handleSourceProcessing] Több nyitott panel van. A feldolgozás leáll.");
+	showAlert("Több forrás panel is nyitva van, nem indul feldolgozás", 3000);
+  }
+}
 
 
 //MAIN
-processSourceList();
+handleSourceProcessing();
