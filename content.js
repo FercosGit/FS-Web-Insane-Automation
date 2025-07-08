@@ -1,5 +1,5 @@
 // content.js
-// version v0.95 beta
+// version v1.0 readytorelease
 // process source list ok
 // process source content ok
 // process baptism ok
@@ -7,11 +7,13 @@
 // process marriage ok
 // source edit OK
 // autosaveenabled NO, hardcoded
+// waitforallelement már cancel szöveget is értelmez, gyorsabb indexeletlen rekord feldolgozás
 
-// hiba: 
+// hiba javítás: dupla név beolvasási hiba OK
 
 // új teszt funkció 
 // választéklista felépítése és egyes/többes feldolgozás választása ok
+// statistic events log ok
 
 
 // assist functions
@@ -120,7 +122,7 @@ function clearObject(obj) {
   Object.keys(obj).forEach(k => delete obj[k]);
 }
 
-function waitForAllElements(selectors, timeout = 4000, interval = 200) {
+/*function waitForAllElements(selectors, timeout = 4000, interval = 200) {
   return new Promise(resolve => {
     const start = Date.now();
     const check = () => {
@@ -133,6 +135,37 @@ function waitForAllElements(selectors, timeout = 4000, interval = 200) {
         setTimeout(check, interval);
       }
     };
+    check();
+  });
+}*/
+
+//new updated waitforallelements function
+function waitForAllElements(selectors, timeout = 4000, interval = 200, cancelText = null) {
+  return new Promise(resolve => {
+    const start = Date.now();
+
+    const check = () => {
+      // Ha megadott cancelText szerepel valamelyik elem szövegében, leáll
+      if (cancelText) {
+        const foundText = Array.from(document.querySelectorAll("*"))
+          .some(el => el.innerText?.trim() === cancelText);
+        if (foundText) {
+          resolve(false);
+          return;
+        }
+      }
+
+      // Minden keresett elem jelen van?
+      const allPresent = selectors.every(sel => document.querySelector(sel));
+      if (allPresent) {
+        resolve(true);
+      } else if (Date.now() - start >= timeout) {
+        resolve(false);
+      } else {
+        setTimeout(check, interval);
+      }
+    };
+
     check();
   });
 }
@@ -161,6 +194,37 @@ function waitForDomStabilization(targetElement, quietPeriod = 300) {
   });
 }
 
+async function fillAndMark({ newTitle, originalTitle, indexed, eventFound, eventType, logPrefix = "" }) {
+    if ((newTitle !== originalTitle) && indexed && eventFound) {
+        console.log(`>>[${logPrefix}] új forráscímet készítettem`);
+        const fillSuccess = await simulateEditAndFillSourceTitle(newTitle);
+        const openPanel = document.querySelector("div[class^='cssSourcePanelOpen_']");
+        const titleElement = openPanel?.querySelector("div[class^='cssSourceTitle_']");
+        if (fillSuccess) {
+            insertFactCheckIcon(titleElement, "green");
+			sendStatisticEvent(("FS_SOFIA_resolved_event_" + eventType), window.location.href);
+
+        } else {
+            insertFactCheckIcon(titleElement, "red");
+			sendStatisticEvent(("FS_SOFIA_resolved_event_unfilled_" + eventType), window.location.href);
+        }
+    } else {
+        if (newTitle === originalTitle) {
+            console.log(`>>[${logPrefix}] Eredeti forrás cím már megfelelő`);
+            const openPanel = document.querySelector("div[class^='cssSourcePanelOpen_']");
+            const titleElement = openPanel?.querySelector("div[class^='cssSourceTitle_']");
+            insertFactCheckIcon(titleElement, "blue");
+			sendStatisticEvent(("FS_SOFIA_resolved_event_unchanged_" + eventType), window.location.href);
+        }
+        if (!indexed) {
+            console.log(`>>[${logPrefix}] Nincs elérhető indexelt adat`);
+            const openPanel = document.querySelector("div[class^='cssSourcePanelOpen_']");
+            const titleElement = openPanel?.querySelector("div[class^='cssSourceTitle_']");
+            insertFactCheckIcon(titleElement, "orange");
+			sendStatisticEvent(("FS_SOFIA_unresolved_event_" + eventType), window.location.href);
+        }
+    }
+}
 
 //data process functions
   function processBaptismOrBirth() {
@@ -172,10 +236,23 @@ function waitForDomStabilization(targetElement, quietPeriod = 300) {
 
     rows.forEach(row => {
       const th = row.querySelector('th')?.innerText?.trim().toLowerCase();
-      const td = row.querySelector('td');
-      const value = td?.innerText?.split('\n')[0].trim();
+      //const td = row.querySelector('td');
+      //const value = td?.innerText?.split('\n')[0].trim();
+		const td = row.querySelector('td');
+		let value = "";
+
+		if (td) {
+		  const clone = td.cloneNode(true);
+
+		  // Töröljük az összes olyan div-et, amely rendelkezik "sides" attribútummal
+		  clone.querySelectorAll('div[sides]').forEach(div => div.remove());
+
+		  // Kiolvassuk az első sort a szövegből
+		  value = clone.innerText.split('\n')[0].trim();
+		}
+
 	  
-	  //console.log(th, value);
+	  console.log(th, value);
 	  
       if (th === "név" && value) {
 		if (missingName == "") { missingName = value}; //ha index hiba miatt csak a fő táblán szerepel a szülő neve
@@ -252,8 +329,23 @@ function waitForDomStabilization(targetElement, quietPeriod = 300) {
 
     rows.forEach(row => {
       const th = row.querySelector('th')?.innerText?.trim().toLowerCase();
-      const td = row.querySelector('td');
-      const value = td?.innerText?.split('\n')[0].trim();
+      //const td = row.querySelector('td');
+      //const value = td?.innerText?.split('\n')[0].trim();
+	  //if name edited, it sort out double name field
+		const td = row.querySelector('td');
+		let value = "";
+
+		if (td) {
+		  const clone = td.cloneNode(true);
+
+		  // Töröljük az összes olyan div-et, amely rendelkezik "sides" attribútummal
+		  clone.querySelectorAll('div[sides]').forEach(div => div.remove());
+
+		  // Kiolvassuk az első sort a szövegből
+		  value = clone.innerText.split('\n')[0].trim();
+		}
+
+
 
       if (th === "név" && value) {
         clearObject(data);
@@ -322,8 +414,21 @@ function waitForDomStabilization(targetElement, quietPeriod = 300) {
 
     rows.forEach(row => {
       const th = row.querySelector('th')?.innerText?.trim().toLowerCase();
-      const td = row.querySelector('td');
-      const value = td?.innerText?.split('\n')[0].trim();
+      //const td = row.querySelector('td');
+      //const value = td?.innerText?.split('\n')[0].trim();
+	  //if name edited, it sort out double name field
+		const td = row.querySelector('td');
+		let value = "";
+
+		if (td) {
+		  const clone = td.cloneNode(true);
+
+		  // Töröljük az összes olyan div-et, amely rendelkezik "sides" attribútummal
+		  clone.querySelectorAll('div[sides]').forEach(div => div.remove());
+
+		  // Kiolvassuk az első sort a szövegből
+		  value = clone.innerText.split('\n')[0].trim();
+		}
 
       if (th === "név" && value) {
         clearObject(data);
@@ -435,7 +540,8 @@ async function simulateEditAndFillSourceTitle(newValue = "új szöveg") {
 		) {
 		saveButton.click();
 		} else {
-		alert("A 'Mentés' gomb nem aktív vagy nem található, változások elvetése");
+		//alert("A 'Mentés' gomb nem aktív vagy nem található, változások elvetése");
+		await showAlert("Mentés' gomb nem aktív vagy nem található, változások elvetése", 2000);
 		const cancelButton = document.querySelector('[data-testid="source-cancel-button"]');
 		//here might check button presence but assumed
 		cancelButton.click();
@@ -532,8 +638,10 @@ async function processSourceList() {
     const idPattern = /^[A-Z0-9]{4}-[A-Z0-9]{3}$/i;
     if (!idPattern.test(id)) continue;
 
-    const titleElement = child.querySelector("div[class^='cssSourceTitle_']");
-    const originalTitle = titleElement ? titleElement.textContent.trim() : "";
+	const titleElement = child.querySelector("div[class^='cssSourceTitle_']");
+	const originalTitle = titleElement
+		? titleElement.querySelector("div")?.textContent.trim() || ""
+		: "";
 
     const button = child.querySelector("button");
     let isButton = true;
@@ -566,7 +674,8 @@ async function processSourceList() {
 	  //"div[class^='cssSourceBody_']",
 	  "tbody"
       // "button[data-testid='view-edit-notes-add-button']"
-    ], 2000);
+    ], 4000, 200,
+	"Ez a feljegyzés még nem lett indexelve.");
     await delay(1000,1300); //delay to let all tbody data downloaded
     let eventFound = false;
     let eventType = "";
@@ -592,30 +701,7 @@ async function processSourceList() {
 	console.log("[processSourceList] forrás feldolgozás eredménye:", results[id]);
    
     // esemény cím kitöltése
-	if ((newTitle !== originalTitle) && indexed && eventFound) {
-		console.log(">>[processOneSource] új forráscímet készítettem");
-		const fillSuccess = await simulateEditAndFillSourceTitle(newTitle);
-		const openPanel = document.querySelector("div[class^='cssSourcePanelOpen_']");
-		const titleElement = openPanel?.querySelector("div[class^='cssSourceTitle_']");
-		if (fillSuccess) {
-			insertFactCheckIcon(titleElement, "green"); //fill succeed with new title
-			} else {
-			insertFactCheckIcon(titleElement, "red"); //fill not succeed
-		}
-	} else { 
-	if ( newTitle == originalTitle ) { 
-	console.log( ">>[processSourceList] Eredeti forrás cím már megfelelő"); 
-	const openPanel = document.querySelector("div[class^='cssSourcePanelOpen_']");
-	const titleElement = openPanel?.querySelector("div[class^='cssSourceTitle_']");
-	insertFactCheckIcon(titleElement, "blue"); // régi cím
-	};
-	if ( !indexed ) {
-	console.log( ">>[processSourceList] Nincs elérhető indexelt adat"); 
-	const openPanel = document.querySelector("div[class^='cssSourcePanelOpen_']");
-	const titleElement = openPanel?.querySelector("div[class^='cssSourceTitle_']");
-	insertFactCheckIcon(titleElement, "red"); // nincs index
-	};
-	}
+	await fillAndMark({ newTitle, originalTitle, indexed, eventFound, eventType, logPrefix: "processSourceList" });
 
     //  Zárás
     button.click();
@@ -656,7 +742,8 @@ async function processOneSource() {
   }
 
   const titleElement = sourceBlock.querySelector("div[class^='cssSourceTitle_']");
-  const originalTitle = titleElement ? titleElement.textContent.trim() : "";
+  //const originalTitle = titleElement ? titleElement.textContent.trim() : "";
+  const originalTitle = titleElement ? titleElement.querySelector("div")?.textContent.trim() || "" : "";
 
   const body = sourceBlock.querySelector("div[class^='cssSourceBody_']");
   if (body) {
@@ -670,7 +757,8 @@ async function processOneSource() {
   const indexedDataFound = await waitForAllElements([
     "div[class^='cssSourcePanelOpen_']",
     "tbody"
-  ], 2000);
+  ], 4000, 200,
+  "Ez a feljegyzés még nem lett indexelve.");
   await delay(1000, 1300); // extra várakozás
 
   let indexed = false;
@@ -699,33 +787,7 @@ async function processOneSource() {
 
   console.log("[processOneSource] forrás feldolgozás eredménye:", results[id]);
 
-  if ((newTitle !== originalTitle) && indexed && eventFound) {
-    console.log(">>[processOneSource] új forráscímet készítettem");
-    const fillSuccess = await simulateEditAndFillSourceTitle(newTitle);
-	const openPanel = document.querySelector("div[class^='cssSourcePanelOpen_']");
-	const titleElement = openPanel?.querySelector("div[class^='cssSourceTitle_']");
-	if (fillSuccess) {
-	insertFactCheckIcon(titleElement, "green"); //fill succeed with new title
-	} else {
-	insertFactCheckIcon(titleElement, "red"); //fill not succeed
-	}
-
-  } else {
-    if (newTitle === originalTitle) {
-      console.log(">>[processOneSource] Eredeti forrás cím már megfelelő");
-	const openPanel = document.querySelector("div[class^='cssSourcePanelOpen_']");
-	const titleElement = openPanel?.querySelector("div[class^='cssSourceTitle_']");
-	insertFactCheckIcon(titleElement, "blue"); // no title change
-
-    }
-    if (!indexed) {
-      console.log(">>[processOneSource] Nincs elérhető indexelt adat");
-	const openPanel = document.querySelector("div[class^='cssSourcePanelOpen_']");
-	const titleElement = openPanel?.querySelector("div[class^='cssSourceTitle_']");
-	insertFactCheckIcon(titleElement, "red"); // no indexed data found
-
-    }
-  }
+  await fillAndMark({ newTitle, originalTitle, indexed, eventFound, eventType, logPrefix: "processOneSource" });
 
   await delay(300, 600); // várakozás emberi módon
 
@@ -799,3 +861,4 @@ async function handleSourceProcessing() {
 //MAIN
 loadMaterialIcons();
 handleSourceProcessing();
+//await showAlert("Befejeződött a feldolgozás.", 2000);
