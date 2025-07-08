@@ -3,7 +3,6 @@
 // refactored by GitHub Co-Pilot
 
 // Constants
-(() => {
 const DOM_TIMEOUT = 4000;
 const DOM_INTERVAL = 200;
 const DELAY_SHORT_MIN = 300;
@@ -701,4 +700,3 @@ async function handleSourceProcessing() {
 // MAIN
 loadMaterialIcons();
 handleSourceProcessing();
-})();
