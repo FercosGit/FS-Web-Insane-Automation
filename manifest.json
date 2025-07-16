@@ -3,7 +3,7 @@
   "name": "CSS SourceTitle Finder",
   "version": "1.0",
   "description": "Konzolra írja a cssSourceTitle osztályú elemek tartalmát.",
-  "permissions": ["scripting", "activeTab"],
+  "permissions": ["storage", "scripting", "activeTab"],
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_title": "Keresés indítása",
