@@ -1,24 +1,65 @@
 // content.js
-// version v1.0 readytorelease
-// refactored by GitHub Co-Pilot
-//removed const definition
+
+// version v1.1 beta test
+
+// process source list ok
+// process source content ok
+// process baptism ok
+// process death ok
+// process marriage ok
+// source edit OK
+// autosaveenabled NO, hardcoded
+// waitforallelement már cancel szöveget is értelmez, gyorsabb indexeletlen rekord feldolgozás
+
+// hiba javítás: dupla név beolvasási hiba OK
+// hiba death/burial rekord üres dátum esetén () OK
+
+// új teszt funkció 
+// választéklista felépítése és egyes/többes feldolgozás választása ok
+// statistic events log ok
+// options ablak megjelenítése OK
+// options változók betöltő függvények ok
+// options shortlabel használata ok
+// options autosave használata
 
 
-// Constants
-// (Delay constants will be inlined and removed as requested)
 
-// Utility & Assist Functions
+// assist functions
+
+function loadShortLabelCache() {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(["kerakv", "szakv", "hzakv", "hlakv"], (result) => {
+      if (chrome.runtime.lastError) {
+        console.error("Hiba a rövidítések betöltésekor:", chrome.runtime.lastError);
+        reject(chrome.runtime.lastError);
+        return;
+      }
+
+      window.shortLabelCache = {
+        kerakv: result.kerakv ?? "kerakv",
+        szakv: result.szakv ?? "szakv",
+        hzakv: result.hzakv ?? "hzakv",
+        hlakv: result.hlakv ?? "hlakv"
+      };
+
+      console.log("[optionLoader] shortLabelCache betöltve:", window.shortLabelCache);
+      resolve(); // jelezd, hogy kész
+    });
+  });
+}
+
+
 function sendStatisticEvent(eventName, url) {
-  const baseUrl = url.split("/").slice(0, -1).join("/");
-  const params = new URLSearchParams();
-  params.append("event", eventName);
-  params.append("url", baseUrl);
+    const baseUrl = url.split("/").slice(0, -1).join("/");
+    const params = new URLSearchParams();
+    params.append("event", eventName);
+    params.append("url", baseUrl);
 
-  fetch("https://script.google.com/macros/s/AKfycbyRVTp97VB0xbve8biOZ5-A-y0VcdGaNxoVWMOntH685oGx5KV0Frqa_iLbkkaJifJApg/exec", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: params.toString()
-  }).catch(err => console.warn("Tracker failed", err));
+    fetch("https://script.google.com/macros/s/AKfycbyRVTp97VB0xbve8biOZ5-A-y0VcdGaNxoVWMOntH685oGx5KV0Frqa_iLbkkaJifJApg/exec", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString()
+    }).catch(err => console.warn("Tracker failed", err));
 }
 
 function loadMaterialIcons() {
@@ -32,19 +73,20 @@ function loadMaterialIcons() {
 }
 
 function insertFactCheckIcon(targetElement, color = "black") {
-  if (!targetElement) return;
   targetElement.style.display = "inline-flex";
-  targetElement.style.alignItems = "flex-start";
-  targetElement.style.gap = "4px";
+  targetElement.style.alignItems = "flex-start"; // ez is segít a top-hoz
+  targetElement.style.gap = "4px"; // szebb távolság az ikon és szöveg között
 
   const iconSpan = document.createElement("span");
   iconSpan.className = "material-icons";
   iconSpan.innerText = "fact_check";
   iconSpan.style.color = color;
   iconSpan.style.fontSize = "20px";
-  iconSpan.style.verticalAlign = "top";
+  iconSpan.style.verticalAlign = "top"; // itt történik a felső igazítás
+
   targetElement.prepend(iconSpan);
 }
+
 
 function showAlert(message, duration = 3000) {
   return new Promise(resolve => {
@@ -52,7 +94,7 @@ function showAlert(message, duration = 3000) {
     alertBox.style.position = 'fixed';
     alertBox.style.top = '20px';
     alertBox.style.left = '50%';
-    alertBox.style.transform = 'translateX(-50%)';
+    alertBox.style.transform = 'translateX(-50%)'; // középre igazítás
     alertBox.style.width = '320px';
     alertBox.style.backgroundColor = '#ffcc00';
     alertBox.style.color = '#000';
@@ -64,11 +106,13 @@ function showAlert(message, duration = 3000) {
     alertBox.style.overflow = 'hidden';
     alertBox.style.fontSize = '14px';
     alertBox.style.textAlign = 'center';
-
+	
+    // Szöveges tartalom
     const text = document.createElement('div');
     text.style.padding = '12px 16px';
     text.textContent = message;
 
+    // Folyamatcsík
     const bar = document.createElement('div');
     bar.style.height = '4px';
     bar.style.backgroundColor = '#444';
@@ -79,6 +123,7 @@ function showAlert(message, duration = 3000) {
     alertBox.appendChild(bar);
     document.body.appendChild(alertBox);
 
+    // Trigger width reduction a következő tickben
     requestAnimationFrame(() => {
       bar.style.width = '0%';
     });
@@ -90,13 +135,6 @@ function showAlert(message, duration = 3000) {
   });
 }
 
-function getAutoSaveEnabled() {
-  return new Promise(resolve => {
-    chrome.storage?.local.get('autoSaveEnabled', data => {
-      resolve(!!data?.autoSaveEnabled);
-    });
-  });
-}
 
 function delay(minMs, maxMs) {
   const ms = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
@@ -107,40 +145,50 @@ function clearObject(obj) {
   Object.keys(obj).forEach(k => delete obj[k]);
 }
 
-function extractTableData(rows) {
-  const data = {}, links = {};
-  rows.forEach(row => {
-    const th = row.querySelector('th')?.innerText?.trim().toLowerCase();
-    const td = row.querySelector('td');
-    let value = "";
-    if (td) {
-      const clone = td.cloneNode(true);
-      clone.querySelectorAll('div[sides]').forEach(div => div.remove());
-      value = clone.innerText.split('\n')[0].trim();
-    }
-    if (th && value) {
-      data[th] = value;
-      links[th] = !!td?.querySelector('a');
-    }
-  });
-  return { data, links };
-}
-
-// DOM Waiters & Observers
-function waitForAllElements(selectors, timeout = 4000, interval = 200, cancelText = null) {
+/*function waitForAllElements(selectors, timeout = 4000, interval = 200) {
   return new Promise(resolve => {
     const start = Date.now();
     const check = () => {
+      const allPresent = selectors.every(sel => document.querySelector(sel));
+      if (allPresent) {
+        resolve(true);
+      } else if (Date.now() - start >= timeout) {
+        resolve(false);
+      } else {
+        setTimeout(check, interval);
+      }
+    };
+    check();
+  });
+}*/
+
+//new updated waitforallelements function
+function waitForAllElements(selectors, timeout = 4000, interval = 200, cancelText = null) {
+  return new Promise(resolve => {
+    const start = Date.now();
+
+    const check = () => {
+      // Ha megadott cancelText szerepel valamelyik elem szövegében, leáll
       if (cancelText) {
         const foundText = Array.from(document.querySelectorAll("*"))
           .some(el => el.innerText?.trim() === cancelText);
-        if (foundText) return resolve(false);
+        if (foundText) {
+          resolve(false);
+          return;
+        }
       }
+
+      // Minden keresett elem jelen van?
       const allPresent = selectors.every(sel => document.querySelector(sel));
-      if (allPresent) return resolve(true);
-      if (Date.now() - start >= timeout) return resolve(false);
-      setTimeout(check, interval);
+      if (allPresent) {
+        resolve(true);
+      } else if (Date.now() - start >= timeout) {
+        resolve(false);
+      } else {
+        setTimeout(check, interval);
+      }
     };
+
     check();
   });
 }
@@ -148,331 +196,467 @@ function waitForAllElements(selectors, timeout = 4000, interval = 200, cancelTex
 function waitForDomStabilization(targetElement, quietPeriod = 300) {
   return new Promise(resolve => {
     let timer;
-    const observer = new MutationObserver(() => {
+
+    const observer = new MutationObserver((mutationsList) => {
       clearTimeout(timer);
       timer = setTimeout(() => {
         observer.disconnect();
-        console.log("[Observer] DOM stabilized.");
+        console.log("[Observer] DOM stabilizálódott – feltételezhetően betöltődött.");
         resolve();
       }, quietPeriod);
     });
+
     observer.observe(targetElement, {
       childList: true,
       subtree: true,
       characterData: true,
       attributes: true
     });
-    console.log("[Observer] DOM mutation observer started...");
+
+    console.log("[Observer] DOM változás figyelés elindítva...");
   });
 }
 
-// Data Processing Functions
-function processBaptismOrBirth() {
-  const rows = document.querySelectorAll('table tr');
-  const { data, links } = extractTableData(rows);
-  let missingName = "";
+async function fillAndMark({ newTitle, originalTitle, indexed, eventFound, eventType, logPrefix = "" }) {
+    if ((newTitle !== originalTitle) && indexed && eventFound) {
+        console.log(`>>[${logPrefix}] új forráscímet készítettem`);
+        const fillSuccess = await simulateEditAndFillSourceTitle(newTitle);
+        const openPanel = document.querySelector("div[class^='cssSourcePanelOpen_']");
+        const titleElement = openPanel?.querySelector("div[class^='cssSourceTitle_']");
+        if (fillSuccess) {
+            insertFactCheckIcon(titleElement, "green");
+			sendStatisticEvent(("FS_SOFIA_resolved_event_" + eventType), window.location.href);
 
-  rows.forEach(row => {
-    const th = row.querySelector('th')?.innerText?.trim().toLowerCase();
-    const td = row.querySelector('td');
-    let value = "";
-    if (td) {
-      const clone = td.cloneNode(true);
-      clone.querySelectorAll('div[sides]').forEach(div => div.remove());
-      value = clone.innerText.split('\n')[0].trim();
-    }
-    if (th === "név" && value && missingName === "") {
-      missingName = value;
-      clearObject(data);
-      clearObject(links);
-    }
-  });
-
-  if (!data["anya neve"]) {
-    data["anya neve"] = missingName;
-    links["anya neve"] = false;
-  }
-  if (!data["apa neve"]) {
-    data["apa neve"] = missingName;
-    links["apa neve"] = false;
-  }
-
-  const name = data["név"] || "";
-  const genderRaw = data["nem"] || "";
-  const gender = genderRaw.toLowerCase();
-  const birthDate = data["születési dátum"] || data["esemény dátuma"] || "";
-  const eventDate = data["esemény dátuma"] || "";
-  const birthYear = (birthDate.match(/\d{4}/) || [])[0] || "";
-  const eventYear = (eventDate.match(/\d{4}/) || [])[0] || "";
-
-  const fiaLanya = (gender === "m" || gender === "male" || gender === "férfi") ? "fia" :
-    (gender === "f" || gender === "female" || gender === "női" || gender === "nő") ? "lánya" : "gyermeke";
-
-  const persons = [
-    { key: "gyermek", label: name ? `${name} (${birthYear})` : "", sourceKey: "név" },
-    { key: "apa", label: data["apa neve"] ? `${data["apa neve"]} (apa)` : "", sourceKey: "apa neve" },
-    { key: "anya", label: data["anya neve"] ? `${data["anya neve"]} (anya)` : "", sourceKey: "anya neve" }
-  ].filter(p => p.label && !p.label.includes("undefined") && p.label.trim() !== "()");
-
-  const noLinkEntries = persons.filter(p => links[p.sourceKey] === false);
-  const defaultPersonKey = noLinkEntries.length === 1 ? noLinkEntries[0].key : null;
-
-  const labelType = (["baptism", "keresztelő"].some(k => (data["esemény típusa"] || "").toLowerCase().includes(k))) ? "kerakv" : "szakv";
-
-  return persons.map(p => {
-    let out = "";
-    if (p.key === "gyermek") {
-      out = `${name} ${birthYear} ${labelType} ${eventYear}`;
+        } else {
+            insertFactCheckIcon(titleElement, "red");
+			sendStatisticEvent(("FS_SOFIA_resolved_event_unfilled_" + eventType), window.location.href);
+        }
     } else {
-      const parentName = data[p.key + " neve"];
-      out = `${parentName} itt ${fiaLanya} ${name} ${birthYear} ${labelType} ${eventYear}`;
+        if (newTitle === originalTitle) {
+            console.log(`>>[${logPrefix}] Eredeti forrás cím már megfelelő`);
+            const openPanel = document.querySelector("div[class^='cssSourcePanelOpen_']");
+            const titleElement = openPanel?.querySelector("div[class^='cssSourceTitle_']");
+            insertFactCheckIcon(titleElement, "blue");
+			sendStatisticEvent(("FS_SOFIA_resolved_event_unchanged_" + eventType), window.location.href);
+        }
+        if (!indexed) {
+            console.log(`>>[${logPrefix}] Nincs elérhető indexelt adat`);
+            const openPanel = document.querySelector("div[class^='cssSourcePanelOpen_']");
+            const titleElement = openPanel?.querySelector("div[class^='cssSourceTitle_']");
+            insertFactCheckIcon(titleElement, "orange");
+			sendStatisticEvent(("FS_SOFIA_unresolved_event_" + eventType), window.location.href);
+        }
     }
-    return {
-      label: p.label,
-      isDefault: p.key === defaultPersonKey,
-      output: out
-    };
-  });
 }
 
-function processMarriageEvent() {
-  const rows = document.querySelectorAll('table tr');
-  const { data, links } = extractTableData(rows);
+//data process functions
+  function processBaptismOrBirth() {
+    //console.log("keresztelő vagy születés esemény feldolgozása...");
+	  const rows = document.querySelectorAll('table tr');
+    const data = {};
+    const links = {};
+    const eventShortLabelKerakv = window.shortLabelCache?.kerakv || "kerakv";
+    const eventShortLabelSzakv = window.shortLabelCache?.szakv || "szakv";
 
-  const personName = data["név"] || "";
-  const personYear = data["születési dátum"] || "";
-  let spouseName = data["házastárs neve"] || "";
-  const spouseYear = data["házastárs születési dátuma"] || "";
-  const marriageDate = data["esemény dátuma"] || "";
+    console.log("window.shortLabelCache tartalam:", window.shortLabelCache);
 
-  // Remove redundant last name from spouseName if present
-  const personLastName = personName.split(" ")[0];
-  const spouseParts = spouseName.split(" ");
-  if (spouseParts.length > 2 && spouseParts.includes(personLastName)) {
-    spouseParts.splice(spouseParts.indexOf(personLastName), 1);
-    spouseName = spouseParts.join(" ");
+	let missingName = "";
+
+    rows.forEach(row => {
+      const th = row.querySelector('th')?.innerText?.trim().toLowerCase();
+      //const td = row.querySelector('td');
+      //const value = td?.innerText?.split('\n')[0].trim();
+		const td = row.querySelector('td');
+		let value = "";
+
+		if (td) {
+		  const clone = td.cloneNode(true);
+
+		  // Töröljük az összes olyan div-et, amely rendelkezik "sides" attribútummal
+		  clone.querySelectorAll('div[sides]').forEach(div => div.remove());
+
+		  // Kiolvassuk az első sort a szövegből
+		  value = clone.innerText.split('\n')[0].trim();
+		}
+
+	  
+	  console.log(th, value);
+	  
+      if (th === "név" && value) {
+		if (missingName == "") { missingName = value}; //ha index hiba miatt csak a fő táblán szerepel a szülő neve
+		clearObject(data);
+        clearObject(links);
+      }
+
+      if (th && value) {
+        data[th] = value;
+        links[th] = !!td.querySelector('a');
+      }
+    });
+    
+	// no data[apa/anya neve hiba kezelése] 
+    if ( !data["anya neve"] ) { 
+		console.log("nincs anya neve"); 
+		data["anya neve"] = missingName; 
+		links["anya neve"] = false; 
+		}
+		
+	if ( !data["apa neve"] ) { 
+		console.log("nincs apa neve, missingName:", missingName ); 
+		data["apa neve"] = missingName; 
+		links["apa neve"] = false; 
+		}
+	
+    // Debug
+    console.log("[processBaptismOrBirth] data tartalma", data);
+	//console.log("[processBaptismOrBirth] links tartalma", links);
+
+    const name = data["név"] || "";
+    const genderRaw = data["nem"] || "";
+    const gender = genderRaw.toLowerCase();
+    const birthDate = data["születési dátum"] || data["esemény dátuma"] || "";
+    const eventDate = data["esemény dátuma"] || "";
+    const birthYear = (birthDate.match(/\d{4}/) || [])[0] || "";
+    const eventYear = (eventDate.match(/\d{4}/) || [])[0] || "";
+
+    const fiaLanya = (gender === "m" || gender === "male" || gender === "férfi") ? "fia" :
+      (gender === "f" || gender === "female" || gender === "női" || gender === "nő") ? "lánya" : "gyermeke";
+
+    const persons = [
+      { key: "gyermek", label: name ? `${name} (${birthYear})` : "", sourceKey: "név" },
+      { key: "apa", label: data["apa neve"] ? `${data["apa neve"]} (apa)` : "", sourceKey: "apa neve" },
+      { key: "anya", label: data["anya neve"] ? `${data["anya neve"]} (anya)` : "", sourceKey: "anya neve" }
+    ].filter(p => p.label && !p.label.includes("undefined") && p.label.trim() !== "()");
+
+    const noLinkEntries = persons.filter(p => links[p.sourceKey] === false);
+    const defaultPersonKey = noLinkEntries.length === 1 ? noLinkEntries[0].key : null;
+
+    //const labelType = (["baptism", "keresztelő"].some(k => (data["esemény típusa"] || "").toLowerCase().includes(k))) ? "kerakv" : "szakv";
+    const labelType = (["baptism", "keresztelő"].some(k => (data["esemény típusa"] || "").toLowerCase().includes(k))) ? eventShortLabelKerakv : eventShortLabelSzakv;
+
+
+    return persons.map(p => {
+      let out = "";
+      if (p.key === "gyermek") {
+        out = `${name} ${birthYear} ${labelType} ${eventYear}`;
+      } else {
+        const parentName = data[p.key + " neve"];
+        out = `${parentName} itt ${fiaLanya} ${name} ${birthYear} ${labelType} ${eventYear}`;
+      }
+      return {
+        label: p.label,
+        isDefault: p.key === defaultPersonKey,
+        output: out
+      };
+    });
+    //console.log("...keresztelő vagy születés esemény feldolgozása befejeződött.");
   }
 
-  const marriageYear = (marriageDate.match(/\d{4}/) || [])[0] || "";
+  function processMarriageEvent() {
+    const rows = document.querySelectorAll('table tr');
+    const data = {};
+    const links = {};
+    const eventShortLabelHzakv = window.shortLabelCache?.hzakv || "hzakv";
 
-  const persons = [
-    { key: "vőlegény", label: personName, sourceKey: "név", suffix: "(fő személy)" },
-    { key: "menyasszony", label: spouseName, sourceKey: "házastárs neve", suffix: "(házastárs)" },
-    { key: "apa", label: data["apa neve"] || "", sourceKey: "apa neve", suffix: "(apa)" },
-    { key: "anya", label: data["anya neve"] || "", sourceKey: "anya neve", suffix: "(anya)" },
-    { key: "házastárs apja", label: data["házastárs apjának neve"] || "", sourceKey: "házastárs apjának neve", suffix: "(házastárs apja)" },
-    { key: "házastárs anyja", label: data["házastárs anyjának neve"] || "", sourceKey: "házastárs anyjának neve", suffix: "(házastárs anyja)" }
-  ].filter(p => p.label && !p.label.includes("undefined") && p.label.trim() !== "()");
+    rows.forEach(row => {
+      const th = row.querySelector('th')?.innerText?.trim().toLowerCase();
+      //const td = row.querySelector('td');
+      //const value = td?.innerText?.split('\n')[0].trim();
+	  //if name edited, it sort out double name field
+		const td = row.querySelector('td');
+		let value = "";
 
-  const noLinkEntries = persons.filter(p => links[p.sourceKey] === false);
-  const defaultPersonKey = noLinkEntries.length === 1 ? noLinkEntries[0].key : null;
+		if (td) {
+		  const clone = td.cloneNode(true);
 
-  return persons.map(p => {
-    let out = "";
-    if (p.key === "vőlegény" || p.key === "menyasszony") {
-      out = `${personName} ${personYear} és ${spouseName} ${spouseYear} hzakv ${marriageYear}`;
-    } else if (p.key === "apa" || p.key === "anya") {
-      out = `${data[p.key === "apa" ? "apa neve" : "anya neve"]} itt fia ${personName} ${personYear} és ${spouseName} ${spouseYear} hzakv ${marriageYear}`;
-    } else if (p.key === "házastárs apja" || p.key === "házastárs anyja") {
-      const other = p.key === "házastárs apja" ? "házastárs apjának neve" : "házastárs anyjának neve";
-      out = `${data[other]} itt lánya ${spouseName} ${spouseYear} és ${personName} ${personYear} hzakv ${marriageYear}`;
+		  // Töröljük az összes olyan div-et, amely rendelkezik "sides" attribútummal
+		  clone.querySelectorAll('div[sides]').forEach(div => div.remove());
+
+		  // Kiolvassuk az első sort a szövegből
+		  value = clone.innerText.split('\n')[0].trim();
+		}
+
+
+
+      if (th === "név" && value) {
+        clearObject(data);
+        clearObject(links);
+      }
+
+      if (th && value) {
+        data[th] = value;
+        links[th] = !!td.querySelector('a');
+      }
+    });
+
+    // Debug
+    // console.log(data);
+
+    const personName = data["név"] || "";
+    const personYear = data["születési dátum"] || "";
+    let spouseName = data["házastárs neve"] || "";
+    const spouseYear = data["házastárs születési dátuma"] || "";
+    const marriageDate = data["esemény dátuma"] || "";
+
+    // Remove redundant last name from spouseName, if present
+    const personLastName = personName.split(" ")[0];
+    const spouseParts = spouseName.split(" ");
+    if (spouseParts.length > 2 && spouseParts.includes(personLastName)) {
+      spouseParts.splice(spouseParts.indexOf(personLastName), 1);
+      spouseName = spouseParts.join(" ");
     }
-    return {
-      label: `${p.label} ${p.suffix}`,
-      isDefault: p.key === defaultPersonKey,
-      output: out
-    };
-  });
-}
 
-function processDeathRegistration() {
-  const rows = document.querySelectorAll('table tr');
-  const { data, links } = extractTableData(rows);
+    const marriageYear = (marriageDate.match(/\d{4}/) || [])[0] || "";
 
-  const name = data["név"] || "";
-  const genderRaw = data["nem"] || "";
-  const gender = genderRaw.toLowerCase();
-  let spouseName = data["házastárs neve"] || "";
+    const persons = [
+      { key: "vőlegény", label: personName, sourceKey: "név", suffix: "(fő személy)" },
+      { key: "menyasszony", label: spouseName, sourceKey: "házastárs neve", suffix: "(házastárs)" },
+      { key: "apa", label: data["apa neve"] || "", sourceKey: "apa neve", suffix: "(apa)" },
+      { key: "anya", label: data["anya neve"] || "", sourceKey: "anya neve", suffix: "(anya)" },
+      { key: "házastárs apja", label: data["házastárs apjának neve"] || "", sourceKey: "házastárs apjának neve", suffix: "(házastárs apja)" },
+      { key: "házastárs anyja", label: data["házastárs anyjának neve"] || "", sourceKey: "házastárs anyjának neve", suffix: "(házastárs anyja)" }
+    ].filter(p => p.label && !p.label.includes("undefined") && p.label.trim() !== "()");
 
-  // Find birth year key dynamically
-  const szulKey = Object.keys(data).find(k => k.startsWith("születési"));
-  const birthYear = (szulKey ? data[szulKey] : "").match(/\d{4}/)?.[0] || "";
-  const deathYear = (data["elhalálozási dátum"] || "").match(/\d{4}/)?.[0] || "";
-  const eventYear = (data["esemény dátuma"] || "").match(/\d{4}/)?.[0] || "";
+    const noLinkEntries = persons.filter(p => links[p.sourceKey] === false);
+    const defaultPersonKey = noLinkEntries.length === 1 ? noLinkEntries[0].key : null;
+    const labelType = eventShortLabelHzakv;
 
-  // Remove redundant last name from spouseName if present
-  const personLastName = name.split(" ")[0];
-  const spouseParts = spouseName.split(" ");
-  if (spouseParts.length > 2 && spouseParts.includes(personLastName)) {
-    spouseParts.splice(spouseParts.indexOf(personLastName), 1);
-    spouseName = spouseParts.join(" ");
+    return persons.map(p => {
+      let out = "";
+      if (p.key === "vőlegény" || p.key === "menyasszony") {
+        out = `${personName} ${personYear} és ${spouseName} ${spouseYear} ${labelType} ${marriageYear}`;
+      } else if (p.key === "apa" || p.key === "anya") {
+        out = `${data[p.key === "apa" ? "apa neve" : "anya neve"]} itt fia ${personName} ${personYear} és ${spouseName} ${spouseYear} ${labelType} ${marriageYear}`;
+      } else if (p.key === "házastárs apja" || p.key === "házastárs anyja") {
+        const other = p.key === "házastárs apja" ? "házastárs apjának neve" : "házastárs anyjának neve";
+        out = `${data[other]} itt lánya ${spouseName} ${spouseYear} és ${personName} ${personYear} ${labelType} ${marriageYear}`;
+      }
+      return {
+        label: `${p.label} ${p.suffix}`,
+        isDefault: p.key === defaultPersonKey,
+        output: out
+      };
+    });
   }
 
-  const fiaLanya = (gender === "m" || gender === "male" || gender === "férfi") ? "fia" :
-    (gender === "f" || gender === "female" || gender === "női" || gender === "nő") ? "lánya" : "gyermeke";
-  const ferjeNeje = (gender === "m" || gender === "male" || gender === "férfi") ? "férje" :
-    (gender === "f" || gender === "female" || gender === "női" || gender === "nő") ? "neje" : "házastársa";
+  function processDeathRegistration() {
+    const rows = document.querySelectorAll('table tr');
+    const data = {};
+    const links = {};
+    const eventShortLabelHlakv = window.shortLabelCache?.hlakv || "hlakv";
 
-  const persons = [
-    { key: "gyermek", label: name ? `${name} (${birthYear})` : "", sourceKey: "név" },
-    { key: "apa", label: data["apa neve"] ? `${data["apa neve"]} (apa)` : "", sourceKey: "apa neve" },
-    { key: "anya", label: data["anya neve"] ? `${data["anya neve"]} (anya)` : "", sourceKey: "anya neve" },
-    { key: "házastárs", label: data["házastárs neve"] ? `${data["házastárs neve"]} (házastárs)` : "", sourceKey: "házastárs neve" }
-  ].filter(p => p.label && !p.label.includes("undefined") && p.label.trim() !== "()");
+    rows.forEach(row => {
+      const th = row.querySelector('th')?.innerText?.trim().toLowerCase();
+      //const td = row.querySelector('td');
+      //const value = td?.innerText?.split('\n')[0].trim();
+	  //if name edited, it sort out double name field
+		const td = row.querySelector('td');
+		let value = "";
 
-  const noLinkEntries = persons.filter(p => links[p.sourceKey] === false);
-  const defaultPersonKey = noLinkEntries.length === 1 ? noLinkEntries[0].key : null;
+		if (td) {
+		  const clone = td.cloneNode(true);
 
-  return persons.map(p => {
-    let out = "";
-    if (p.key === "gyermek") {
-      out = `${name} ${birthYear} hlakv ${eventYear} (${deathYear})`;
-    } else if (p.key === "házastárs") {
-      out = `${spouseName} itt ${ferjeNeje} ${name} ${birthYear} hlakv ${eventYear} (${deathYear || eventYear})`;
-    } else {
-      const parentName = data[p.key + " neve"];
-      out = `${parentName} itt ${fiaLanya} ${name} ${birthYear} hlakv ${eventYear} (${deathYear || eventYear})`;
+		  // Töröljük az összes olyan div-et, amely rendelkezik "sides" attribútummal
+		  clone.querySelectorAll('div[sides]').forEach(div => div.remove());
+
+		  // Kiolvassuk az első sort a szövegből
+		  value = clone.innerText.split('\n')[0].trim();
+		}
+
+      if (th === "név" && value) {
+        clearObject(data);
+        clearObject(links);
+      }
+
+      if (th && value) {
+        data[th] = value;
+        links[th] = !!td.querySelector('a');
+      }
+    });
+
+    // Debug
+    console.log(data);
+
+    const name = data["név"] || "";
+    const genderRaw = data["nem"] || "";
+    const gender = genderRaw.toLowerCase();
+    let spouseName = data["házastárs neve"] || "";
+
+    // Find birth year key dynamically
+    const szulKey = Object.keys(data).find(k => k.startsWith("születési"));
+    const birthYear = (szulKey ? data[szulKey] : "").match(/\d{4}/)?.[0] || "";
+    const deathYear = (data["elhalálozási dátum"] || data["esemény dátuma"] || "").match(/\d{4}/)?.[0] || "";
+    const eventYear = (data["esemény dátuma"] || "").match(/\d{4}/)?.[0] || "";
+
+    // Remove redundant last name from spouseName, if present
+    const personLastName = name.split(" ")[0];
+    const spouseParts = spouseName.split(" ");
+    if (spouseParts.length > 2 && spouseParts.includes(personLastName)) {
+      spouseParts.splice(spouseParts.indexOf(personLastName), 1);
+      spouseName = spouseParts.join(" ");
     }
-    return {
-      label: p.label,
-      isDefault: p.key === defaultPersonKey,
-      output: out
-    };
-  });
+
+    const fiaLanya = (gender === "m" || gender === "male" || gender === "férfi") ? "fia" :
+      (gender === "f" || gender === "female" || gender === "női" || gender === "nő") ? "lánya" : "gyermeke";
+    const ferjeNeje = (gender === "m" || gender === "male" || gender === "férfi") ? "férje" :
+      (gender === "f" || gender === "female" || gender === "női" || gender === "nő") ? "neje" : "házastársa";
+
+    const persons = [
+      { key: "gyermek", label: name ? `${name} (${birthYear})` : "", sourceKey: "név" },
+      { key: "apa", label: data["apa neve"] ? `${data["apa neve"]} (apa)` : "", sourceKey: "apa neve" },
+      { key: "anya", label: data["anya neve"] ? `${data["anya neve"]} (anya)` : "", sourceKey: "anya neve" },
+      { key: "házastárs", label: data["házastárs neve"] ? `${data["házastárs neve"]} (házastárs)` : "", sourceKey: "házastárs neve" }
+    ].filter(p => p.label && !p.label.includes("undefined") && p.label.trim() !== "()");
+
+    const noLinkEntries = persons.filter(p => links[p.sourceKey] === false);
+    const defaultPersonKey = noLinkEntries.length === 1 ? noLinkEntries[0].key : null;
+    const labelType = eventShortLabelHlakv;
+
+    return persons.map(p => {
+      let out = "";
+      if (p.key === "gyermek") {
+        out = `${name} ${birthYear} ${labelType} ${eventYear} (${deathYear})`;
+      } else if (p.key === "házastárs") {
+        out = `${spouseName} itt ${ferjeNeje} ${name} ${birthYear} ${labelType} ${eventYear} (${deathYear || eventYear})`;
+      } else {
+        const parentName = data[p.key + " neve"];
+        out = `${parentName} itt ${fiaLanya} ${name} ${birthYear} ${labelType} ${eventYear} (${deathYear || eventYear})`;
+      }
+      return {
+        label: p.label,
+        isDefault: p.key === defaultPersonKey,
+        output: out
+      };
+    });
+  }
+
+async function simulateEditAndFillSourceTitle(newValue = "új szöveg") {
+    // 1. Find visible 'Szerkesztés' (Edit) button and click it
+    const buttons = Array.from(document.querySelectorAll('button[data-testid^="source-button_edit"]'));
+    const visibleButton = buttons.find(btn =>
+      btn.offsetParent !== null &&
+      !btn.disabled &&
+      btn.getBoundingClientRect().height > 0
+    );
+
+    if (!visibleButton) {
+        alert("Nem található látható, aktív 'Szerkesztés' gomb.");
+        return false;
+    }
+    visibleButton.click();
+
+    // 2. Wait for the input to appear (up to 2s)
+    const ok = await waitForAllElements(['input[data-testid="source-title-field"'], 2500, 100);
+    if (!ok) {
+        alert("Nem található a 'Forrás címe' mező.");
+        return false;
+    }
+	await delay(500,600); //let time for input field to be able to accept data
+    // 3. Fill in and trigger input/change events
+    const input = document.querySelector('input[data-testid="source-title-field"]');
+    input.value = newValue;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    // 4. Check autosave, and click Save if enabled
+	const autoSaveEnabled = true;
+	if (!autoSaveEnabled) {
+		await showAlert("Szerkesztés lehetséges mentés előtt...", 5000);
+	} else {
+		await showAlert("Új forrás cím mentése...", 1000);
+	}
+	const saveButton = document.querySelector('[data-testid="source-save-button"]');
+        if (
+		saveButton &&
+		saveButton.getAttribute("aria-disabled") !== "true" &&
+		saveButton.offsetParent !== null &&
+		saveButton.getBoundingClientRect().height > 0
+		) {
+		saveButton.click();
+		} else {
+		//alert("A 'Mentés' gomb nem aktív vagy nem található, változások elvetése");
+		await showAlert("Mentés' gomb nem aktív vagy nem található, változások elvetése", 2000);
+		const cancelButton = document.querySelector('[data-testid="source-cancel-button"]');
+		//here might check button presence but assumed
+		cancelButton.click();
+		return false;
+		}
+
+		
+	    // wait a bit to ensure the UI processed it
+    await delay(1600, 2000);
+    return true;
 }
 
-// Source Processing Logic
 function detectEventType() {
-  const rows = document.querySelectorAll('table tr');
-  for (const row of rows) {
-    const key = row.querySelector('th')?.innerText?.trim().toLowerCase();
-    if (key === "esemény típusa") {
-      const value = row.querySelector('td')?.innerText?.trim();
-      return value || "";
+    const rows = document.querySelectorAll('table tr');
+    for (const row of rows) {
+      const key = row.querySelector('th')?.innerText?.trim().toLowerCase();
+      if (key === "esemény típusa") {
+        const value = row.querySelector('td')?.innerText?.trim();
+        return value || "";
+      }
     }
-  }
-  return "";
+    return "";
 }
+
 
 function processSourceContent() {
   let eventType = "";
   let eventTypeRaw = "";
   let newTitle = "";
   let eventFound = false;
-
+ 
+  // Processing logic (placeholder)
   eventTypeRaw = detectEventType();
   eventType = eventTypeRaw.toLowerCase();
-  console.log("[processSourceContent] eventType:", eventType);
-
+  console.log( "[processSourceContent] eventType:", eventType );
+  
+  // eventtype logic
   if (!eventTypeRaw) {
     eventFound = false;
-    eventType = "nem jelölt";
-    newTitle = "";
+	eventType = "nem jelölt";
+	newTitle = "";
+
   } else if (["házasság", "marriage"].some(k => eventType.includes(k))) {
-    const choices = processMarriageEvent();
-    const defaultIdx = choices.findIndex(c => c.isDefault);
+	const choices = processMarriageEvent();
+	const defaultIdx = choices.findIndex(c => c.isDefault);
     eventFound = true;
-    newTitle = choices[defaultIdx].output;
+	//eventType set before by detectEventType()
+    newTitle = choices[defaultIdx].output; 
+    //sendStatisticEvent("resolved_event_" + eventTypeRaw.trim().toLowerCase().replace(/\s+/g, "_"), window.location.href);
+
   } else if (["baptism", "keresztelő", "birth registration"].some(k => eventType.includes(k))) {
-    const choices = processBaptismOrBirth();
-    const defaultIdx = choices.findIndex(c => c.isDefault);
+    //console.log("process baptism hívása");
+	const choices = processBaptismOrBirth();
+	//console.log("process baptism vége van", choices);
+	const defaultIdx = choices.findIndex(c => c.isDefault);
+	//console.log("defaultidx", defaultIdx);
     eventFound = true;
-    newTitle = choices[defaultIdx].output;
+	//eventType set before by detectEventType()
+	newTitle = choices[defaultIdx].output;
+	
+	//sendStatisticEvent("resolved_event_" + eventTypeRaw.trim().toLowerCase().replace(/\s+/g, "_"), window.location.href);
+
   } else if (["death registration", "burial", "death"].some(k => eventType.includes(k))) {
     const choices = processDeathRegistration();
-    const defaultIdx = choices.findIndex(c => c.isDefault);
-    eventFound = true;
-    newTitle = choices[defaultIdx].output;
+	const defaultIdx = choices.findIndex(c => c.isDefault);
+	eventFound = true;
+	//eventType set before by detectEventType()
+	newTitle = choices[defaultIdx].output;
+    //sendStatisticEvent("resolved_event_" + eventTypeRaw.trim().toLowerCase().replace(/\s+/g, "_"), window.location.href);
+
   } else {
     eventFound = false;
-    newTitle = "";
+	//eventType set before by detectEventType()
+	newTitle = "";
+    //sendStatisticEvent("unsopported_event_" + eventTypeRaw.trim().toLowerCase().replace(/\s+/g, "_"), window.location.href);
   }
-
+  
   return { eventFound, eventType, newTitle };
 }
 
-async function fillAndMark({ newTitle, originalTitle, indexed, eventFound, eventType, logPrefix = "" }) {
-  const openPanel = document.querySelector("div[class^='cssSourcePanelOpen_']");
-  const titleElement = openPanel?.querySelector("div[class^='cssSourceTitle_']");
 
-  if ((newTitle !== originalTitle) && indexed && eventFound) {
-    console.log(`>>[${logPrefix}] új forráscímet készítettem`);
-    const fillSuccess = await simulateEditAndFillSourceTitle(newTitle);
-    if (fillSuccess) {
-      insertFactCheckIcon(titleElement, "green");
-      sendStatisticEvent(("FS_SOFIA_resolved_event_" + eventType), window.location.href);
-    } else {
-      insertFactCheckIcon(titleElement, "red");
-      sendStatisticEvent(("FS_SOFIA_resolved_event_unfilled_" + eventType), window.location.href);
-    }
-  } else {
-    if (newTitle === originalTitle) {
-      console.log(`>>[${logPrefix}] Eredeti forrás cím már megfelelő`);
-      insertFactCheckIcon(titleElement, "blue");
-      sendStatisticEvent(("FS_SOFIA_resolved_event_unchanged_" + eventType), window.location.href);
-    }
-    if (!indexed) {
-      console.log(`>>[${logPrefix}] Nincs elérhető indexelt adat`);
-      insertFactCheckIcon(titleElement, "orange");
-      sendStatisticEvent(("FS_SOFIA_unresolved_event_" + eventType), window.location.href);
-    }
-  }
-}
-
-async function simulateEditAndFillSourceTitle(newValue = "új szöveg") {
-  const buttons = Array.from(document.querySelectorAll('button[data-testid^="source-button_edit"]'));
-  const visibleButton = buttons.find(btn =>
-    btn.offsetParent !== null &&
-    !btn.disabled &&
-    btn.getBoundingClientRect().height > 0
-  );
-
-  if (!visibleButton) {
-    await showAlert("Nem található látható, aktív 'Szerkesztés' gomb.", 3000);
-    return false;
-  }
-  visibleButton.click();
-
-  // Wait for input to appear
-  const ok = await waitForAllElements(['input[data-testid="source-title-field"'], 2500, 100);
-  if (!ok) {
-    await showAlert("Nem található a 'Forrás címe' mező.", 3000);
-    return false;
-  }
-  await delay(500, 600);
-  const input = document.querySelector('input[data-testid="source-title-field"]');
-  input.value = newValue;
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-  input.dispatchEvent(new Event('change', { bubbles: true }));
-
-  // Assume autosave enabled
-  const autoSaveEnabled = true;
-  if (!autoSaveEnabled) {
-    await showAlert("Szerkesztés lehetséges mentés előtt...", 5000);
-  } else {
-    await showAlert("Új forrás cím mentése...", 1000);
-  }
-
-  const saveButton = document.querySelector('[data-testid="source-save-button"]');
-  if (
-    saveButton &&
-    saveButton.getAttribute("aria-disabled") !== "true" &&
-    saveButton.offsetParent !== null &&
-    saveButton.getBoundingClientRect().height > 0
-  ) {
-    saveButton.click();
-  } else {
-    await showAlert("Mentés' gomb nem aktív vagy nem található, változások elvetése", 2000);
-    const cancelButton = document.querySelector('[data-testid="source-cancel-button"]');
-    cancelButton?.click();
-    return false;
-  }
-
-  await delay(1600, 2000);
-  return true;
-}
-
-// Main Source List/Panel Functions
 async function processSourceList() {
   const results = {};
   const container = document.querySelector("div[class^='cssSourceSpacing_']");
@@ -488,24 +672,24 @@ async function processSourceList() {
     const idPattern = /^[A-Z0-9]{4}-[A-Z0-9]{3}$/i;
     if (!idPattern.test(id)) continue;
 
-    const titleElement = child.querySelector("div[class^='cssSourceTitle_']");
-    const originalTitle = titleElement
-      ? titleElement.querySelector("div")?.textContent.trim() || ""
-      : "";
+	const titleElement = child.querySelector("div[class^='cssSourceTitle_']");
+	const originalTitle = titleElement
+		? titleElement.querySelector("div")?.textContent.trim() || ""
+		: "";
 
     const button = child.querySelector("button");
     let isButton = true;
-    if (!button) {
-      isButton = false;
+	if (!button) {
+	  isButton = false;	
       console.warn(`[click] Nincs gomb: ${id}`);
       continue;
     }
 
-    // Open
+    // Nyitás
     button.click();
     console.log(`[click] Nyitás: ${originalTitle}`);
 
-    // Wait for DOM stabilization
+    // Várjuk a DOM stabilizálódását
     const body = document.querySelector("div[class^='cssSourceBody_']");
     if (body) {
       await waitForDomStabilization(body);
@@ -514,25 +698,29 @@ async function processSourceList() {
     }
 
     let indexed = false;
+    // Feldolgozás
+    // Wait and check for source body and add-button to appear (max 2s)
+    console.log("[processSourceList] Várakozás forrás panel adatok elérhetőségére...");
+		
+	//lenyilt-e a forrás panel és betöltött-e a sorcebody?
+	const indexedDataFound = await waitForAllElements([
+      "div[class^='cssSourcePanelOpen_']",
+	  //"div[class^='cssSourceBody_']",
+	  "tbody"
+      // "button[data-testid='view-edit-notes-add-button']"
+    ], 4000, 200,
+	"Ez a feljegyzés még nem lett indexelve.");
+    await delay(1000,1300); //delay to let all tbody data downloaded
     let eventFound = false;
     let eventType = "";
     let newTitle = "";
 
-    // Wait and check for source body and add-button to appear
-    console.log("[processSourceList] Várakozás forrás panel adatok elérhetőségére...");
-    const indexedDataFound = await waitForAllElements([
-      "div[class^='cssSourcePanelOpen_']",
-      "tbody"
-    ], 4000, 200,
-      "Ez a feljegyzés még nem lett indexelve.");
-    await delay(1000, 1300);
-
     if (indexedDataFound) {
-      console.log("[processSourceList] ...forrásadatok elérhetőek");
+	  console.log("[processSourceList] ...forrásadatok elérhetőek");
       const SourceContent = processSourceContent();
-      indexed = true;
+	  indexed = true;
       eventFound = SourceContent.eventFound;
-      eventType = SourceContent.eventType;
+	  eventType = SourceContent.eventType;
       newTitle = SourceContent.newTitle;
     }
     results[id] = {
@@ -544,16 +732,16 @@ async function processSourceList() {
       eventType,
       newTitle
     };
-    console.log("[processSourceList] forrás feldolgozás eredménye:", results[id]);
+	console.log("[processSourceList] forrás feldolgozás eredménye:", results[id]);
+   
+    // esemény cím kitöltése
+	await fillAndMark({ newTitle, originalTitle, indexed, eventFound, eventType, logPrefix: "processSourceList" });
 
-    // Esemény cím kitöltése
-    await fillAndMark({ newTitle, originalTitle, indexed, eventFound, eventType, logPrefix: "processSourceList" });
-
-    // Close
+    //  Zárás
     button.click();
     console.log(`[click] Zárás: ${originalTitle}`);
 
-    await delay(300, 600);
+    await delay(300, 600); // várakozás emberi módon
   }
 
   console.log("[processSourceList] Minden forrás feldolgozva.");
@@ -573,6 +761,7 @@ async function processOneSource() {
     return;
   }
 
+  // A nyitott panel szülője az azonosítóval rendelkező blokk
   const sourceBlock = openPanel.closest("div[id]");
   if (!sourceBlock) {
     console.warn("[processOneSource] Nem található a nyitott panel szülő blokkja.");
@@ -587,11 +776,13 @@ async function processOneSource() {
   }
 
   const titleElement = sourceBlock.querySelector("div[class^='cssSourceTitle_']");
+  //const originalTitle = titleElement ? titleElement.textContent.trim() : "";
   const originalTitle = titleElement ? titleElement.querySelector("div")?.textContent.trim() || "" : "";
 
   const body = sourceBlock.querySelector("div[class^='cssSourceBody_']");
   if (body) {
     console.log(`[processOneSource] Van body blokk: ${id}`);
+	//await waitForDomStabilization(body);
   } else {
     console.warn(`[processOneSource] Nincs body blokk: ${id}`);
   }
@@ -601,8 +792,8 @@ async function processOneSource() {
     "div[class^='cssSourcePanelOpen_']",
     "tbody"
   ], 4000, 200,
-    "Ez a feljegyzés még nem lett indexelve.");
-  await delay(1000, 1300);
+  "Ez a feljegyzés még nem lett indexelve.");
+  await delay(1000, 1300); // extra várakozás
 
   let indexed = false;
   let eventFound = false;
@@ -629,14 +820,17 @@ async function processOneSource() {
   };
 
   console.log("[processOneSource] forrás feldolgozás eredménye:", results[id]);
+
   await fillAndMark({ newTitle, originalTitle, indexed, eventFound, eventType, logPrefix: "processOneSource" });
-  await delay(300, 600);
+
+  await delay(300, 600); // várakozás emberi módon
+
   console.log("[processOneSource] Egyetlen forrás feldolgozva.");
 }
 
-// Panel Scanning/Handling
+
 async function scanSourcePanels() {
-  const results = {};
+  const results = {}; // Objektum, ahol az id a kulcs
   let indexCounter = 0;
 
   const container = document.querySelector("div[class^='cssSourceSpacing_']");
@@ -653,13 +847,15 @@ async function scanSourcePanels() {
     const idPattern = /^[A-Z0-9]{4}-[A-Z0-9]{3}$/i;
     if (!idPattern.test(id)) continue;
 
-    const openPanel = child.querySelector("div[class^='cssSourcePanelOpen_']");
-    const isOpen = !!openPanel;
+	const openPanel = child.querySelector("div[class^='cssSourcePanelOpen_']");
+	const closedPanel = child.querySelector("div[class^='cssSourcePanelClosed_']");
+	const isOpen = !!openPanel;
 
     const titleElement = child.querySelector("div[class^='cssSourceTitle_']");
     const title = titleElement ? titleElement.textContent.trim() : "";
 
     const sourcePanelIndex = indexCounter.toString().padStart(4, '0');
+    
 
     results[id] = {
       id,
@@ -675,6 +871,7 @@ async function scanSourcePanels() {
 
 async function handleSourceProcessing() {
   const panelMap = await scanSourcePanels();
+
   const openPanels = Object.values(panelMap).filter(item => item.sourcePanelOpen);
   const count = openPanels.length;
 
@@ -682,18 +879,28 @@ async function handleSourceProcessing() {
 
   if (count === 1) {
     console.log("[handleSourceProcessing] Egy nyitott panel van → processOneSource() meghívása...");
-    await showAlert("Elindítom az egyetlen nyitott forrás címének feldolgozását", 3000);
+	await showAlert("Elindítom az egyetlen nyitott forrás címének feldolgozását", 3000);	
     await processOneSource();
   } else if (count === 0) {
     console.log("[handleSourceProcessing] Nincs nyitott panel → processSourceList() meghívása...");
-    await showAlert("Elindítom az összes forrás cím feldolgozását", 3000);
+	await showAlert("Elindítom az összes forrás cím feldolgozását", 3000);
     await processSourceList();
   } else {
     console.warn("[handleSourceProcessing] Több nyitott panel van. A feldolgozás leáll.");
-    await showAlert("Több forrás panel is nyitva van, nem indul feldolgozás", 3000);
+	await showAlert("Több forrás panel is nyitva van, nem indul feldolgozás", 3000);
   }
 }
 
-// MAIN
+async function main() {
+//MAIN
+// Globális cache objektum létrehozása és betöltése
+await loadShortLabelCache();
+//console.log("window.shortLabelCache tartalam:", window.shortLabelCache);
+
 loadMaterialIcons();
 handleSourceProcessing();
+//await showAlert("Befejeződött a feldolgozás.", 2000);
+
+}
+
+main();
