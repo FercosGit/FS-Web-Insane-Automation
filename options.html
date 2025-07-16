@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>FS Web Automate – Beállítások</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 2em auto;
+      max-width: 600px;
+      background: #f7f7f7;
+      padding: 2em;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      color: #006241;
+      text-align: center;
+      margin-bottom: 1em;
+    }
+
+    .option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: white;
+      padding: 1em;
+      margin: 1em 0;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+
+    .option-text {
+      flex: 1;
+      margin-right: 1em;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .option-summary {
+      font-weight: bold;
+      font-size: 1.1em;
+      color: #222;
+    }
+
+    .option-note {
+      font-size: 0.9em;
+      color: #444;
+      margin-top: 0.2em;
+    }
+
+    .option-description {
+      font-size: 0.8em;
+      color: #666;
+      margin-left: 1.5em;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 24px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: #006241;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+
+    .input-option {
+      display: flex;
+      flex-direction: column;
+      background: white;
+      padding: 1em;
+      margin: 1em 0;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+
+    .input-option label {
+      font-weight: bold;
+      margin-bottom: 0.3em;
+      color: #333;
+    }
+
+    .input-option input {
+      padding: 0.5em;
+      font-size: 1em;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .save-button {
+      display: block;
+      margin: 2em auto 0;
+      padding: 0.7em 1.5em;
+      background-color: #006241;
+      color: white;
+      font-weight: bold;
+      font-size: 1em;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .save-button:hover {
+      background-color: #004d33;
+    }
+
+    .logo {
+      display: block;
+      margin: 0 auto 1.5em;
+      height: 60px;
+    }
+  </style>
+</head>
+<body>
+  <img src="beta_icon512.png" alt="Bővítmény logó" class="logo">
+
+  <h1>FS-SOFIA Bővítmény beállítások (verzió 1.1)</h1>
+
+  <div class="option">
+    <div class="option-text">
+      <div class="option-summary">Automatikus mentés (egy forrásos üzemmódban)</div>
+      <div class="option-note">Mentés gomb automatikus megnyomása szerkesztés ablakban.</div>
+      <div class="option-description">
+        Ha kikapcsolod, előbb megtekintheted és szerkesztheted a generált szöveget. Ezután neked kell menteni a szerkesztést.
+        Akkor javasolt kikapcsolni ha hibásan indexelték a személyek neveit. Csak egy forrásos üzemmódban érvényes ez a beállítás.
+      </div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="autoSaveEnabled">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="input-option">
+    <label for="kerakv">Keresztelési anyakönyvi bejegyzés rövidítése:</label>
+    <input type="text" id="kerakv" value="kerakv">
+  </div>
+
+  <div class="input-option">
+    <label for="szakv">Születési anyakönyvi bejegyzés rövidítése:</label>
+    <input type="text" id="szakv" value="szakv">
+  </div>
+
+  <div class="input-option">
+    <label for="hzakv">Házassági anyakönyvi bejegyzés rövidítése:</label>
+    <input type="text" id="hzakv" value="hzakv">
+  </div>
+
+  <div class="input-option">
+    <label for="hlakv">Halotti vagy temetési anyakönvyi bejegyzés rövidítése:</label>
+    <input type="text" id="hlakv" value="hlakv">
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
