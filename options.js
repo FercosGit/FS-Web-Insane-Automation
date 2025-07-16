@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Mentés gomb hozzáadása dinamikusan (vagy HTML-ben is lehet)
   const saveButton = document.createElement("button");
-  saveButton.textContent = "Beállítások mentése JS";
+  saveButton.textContent = "Beállítások mentése js";
   saveButton.style.marginTop = "1em";
   saveButton.style.padding = "0.5em 1em";
   saveButton.style.backgroundColor = "#006241";
@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     chrome.storage.local.set({ kerakv, szakv, hzakv, hlakv }, () => {
       saveButton.textContent = "Mentve ✓";
-      setTimeout(() => (saveButton.textContent = "Beállítások mentése"), 2000);
+      setTimeout(() => (saveButton.textContent = "Beállítások mentése újra js"), 2000);
     });
   });
 });
