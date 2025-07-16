@@ -1,14 +1,11 @@
 // content.js
 // version v1.0 readytorelease
 // refactored by GitHub Co-Pilot
+//removed const definition
+
 
 // Constants
-const DOM_TIMEOUT = 4000;
-const DOM_INTERVAL = 200;
-const DELAY_SHORT_MIN = 300;
-const DELAY_SHORT_MAX = 600;
-const DELAY_LONG_MIN = 1000;
-const DELAY_LONG_MAX = 1300;
+// (Delay constants will be inlined and removed as requested)
 
 // Utility & Assist Functions
 function sendStatisticEvent(eventName, url) {
@@ -130,7 +127,7 @@ function extractTableData(rows) {
 }
 
 // DOM Waiters & Observers
-function waitForAllElements(selectors, timeout = DOM_TIMEOUT, interval = DOM_INTERVAL, cancelText = null) {
+function waitForAllElements(selectors, timeout = 4000, interval = 200, cancelText = null) {
   return new Promise(resolve => {
     const start = Date.now();
     const check = () => {
@@ -526,9 +523,9 @@ async function processSourceList() {
     const indexedDataFound = await waitForAllElements([
       "div[class^='cssSourcePanelOpen_']",
       "tbody"
-    ], DOM_TIMEOUT, DOM_INTERVAL,
+    ], 4000, 200,
       "Ez a feljegyzés még nem lett indexelve.");
-    await delay(DELAY_LONG_MIN, DELAY_LONG_MAX);
+    await delay(1000, 1300);
 
     if (indexedDataFound) {
       console.log("[processSourceList] ...forrásadatok elérhetőek");
@@ -556,7 +553,7 @@ async function processSourceList() {
     button.click();
     console.log(`[click] Zárás: ${originalTitle}`);
 
-    await delay(DELAY_SHORT_MIN, DELAY_SHORT_MAX);
+    await delay(300, 600);
   }
 
   console.log("[processSourceList] Minden forrás feldolgozva.");
@@ -603,9 +600,9 @@ async function processOneSource() {
   const indexedDataFound = await waitForAllElements([
     "div[class^='cssSourcePanelOpen_']",
     "tbody"
-  ], DOM_TIMEOUT, DOM_INTERVAL,
+  ], 4000, 200,
     "Ez a feljegyzés még nem lett indexelve.");
-  await delay(DELAY_LONG_MIN, DELAY_LONG_MAX);
+  await delay(1000, 1300);
 
   let indexed = false;
   let eventFound = false;
@@ -633,7 +630,7 @@ async function processOneSource() {
 
   console.log("[processOneSource] forrás feldolgozás eredménye:", results[id]);
   await fillAndMark({ newTitle, originalTitle, indexed, eventFound, eventType, logPrefix: "processOneSource" });
-  await delay(DELAY_SHORT_MIN, DELAY_SHORT_MAX);
+  await delay(300, 600);
   console.log("[processOneSource] Egyetlen forrás feldolgozva.");
 }
 
