@@ -899,7 +899,7 @@ await loadShortLabelCache();
 
 loadMaterialIcons();
 handleSourceProcessing();
-//await showAlert("Befejeződött a feldolgozás.", 2000);
+await showAlert("Befejeződött a feldolgozás.", 2000);
 
 }
 
