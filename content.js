@@ -20,6 +20,7 @@
 // options ablak megjelenítése OK
 // options változók betöltő függvények ok
 // options shortlabel használata ok
+// showAlert megváltoztatva OK
 // options autosave használata
 
 
@@ -88,42 +89,83 @@ function insertFactCheckIcon(targetElement, color = "black") {
 }
 
 
-function showAlert(message, duration = 3000) {
+function showAlert(message, duration = 3000, type = "warning") {
   return new Promise(resolve => {
+    // Betöltjük a Material Icons fontot
+    if (!document.getElementById("material-icons-font")) {
+      const link = document.createElement("link");
+      link.id = "material-icons-font";
+      link.href = "https://fonts.googleapis.com/icon?family=Material+Icons";
+      link.rel = "stylesheet";
+      document.head.appendChild(link);
+    }
+
+    // Típusokhoz tartozó stílusok
+    const typeStyles = {
+      success: { background: "#e6f9ec", bar: "#28a745", iconColor: "#28a745" },
+      warning: { background: "#fff8d3", bar: "#ffc107", iconColor: "#ffc107" },
+      error: { background: "#fdecea", bar: "#dc3545", iconColor: "#dc3545" },
+      default: { background: "#fff8d3", bar: "#ffc107", iconColor: "#444" }
+    };
+
+    const style = typeStyles[type] || typeStyles.default;
+
+    // Fő alert doboz
     const alertBox = document.createElement('div');
     alertBox.style.position = 'fixed';
     alertBox.style.top = '20px';
     alertBox.style.left = '50%';
-    alertBox.style.transform = 'translateX(-50%)'; // középre igazítás
-    alertBox.style.width = '320px';
-    alertBox.style.backgroundColor = '#ffcc00';
-    alertBox.style.color = '#000';
-    alertBox.style.fontWeight = 'bold';
-    alertBox.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
+    alertBox.style.transform = 'translateX(-50%)';
+    alertBox.style.width = '360px';
+    alertBox.style.backgroundColor = style.background;
+    alertBox.style.color = '#222';
+    alertBox.style.fontWeight = '500';
+    alertBox.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
     alertBox.style.zIndex = '9999';
-    alertBox.style.borderRadius = '8px';
+    alertBox.style.borderRadius = '10px';
     alertBox.style.pointerEvents = 'none';
     alertBox.style.overflow = 'hidden';
     alertBox.style.fontSize = '14px';
-    alertBox.style.textAlign = 'center';
-	
-    // Szöveges tartalom
+
+    // Konténer az ikonhoz és szöveghez
+    const container = document.createElement('div');
+    container.style.display = 'flex';
+    container.style.alignItems = 'center';
+    container.style.position = 'relative';
+    container.style.padding = '12px 16px';
+    container.style.gap = '10px';
+
+    // Material ikon (fact_check)
+    const iconSpan = document.createElement("span");
+    iconSpan.className = "material-icons";
+    iconSpan.innerText = "fact_check";
+    iconSpan.style.color = style.iconColor;
+    iconSpan.style.fontSize = "24px";
+    iconSpan.style.flexShrink = "0";
+
+    // Szöveg
     const text = document.createElement('div');
-    text.style.padding = '12px 16px';
     text.textContent = message;
+    text.style.flex = '1';
 
     // Folyamatcsík
     const bar = document.createElement('div');
+    bar.style.position = 'absolute';
+    bar.style.bottom = '0';
+    bar.style.left = '0';
     bar.style.height = '4px';
-    bar.style.backgroundColor = '#444';
+    bar.style.backgroundColor = style.bar;
     bar.style.width = '100%';
     bar.style.transition = `width linear ${duration}ms`;
 
-    alertBox.appendChild(text);
-    alertBox.appendChild(bar);
+    // Összerakás
+    container.appendChild(iconSpan);
+    container.appendChild(text);
+    container.appendChild(bar);
+    alertBox.appendChild(container);
     document.body.appendChild(alertBox);
 
-    // Trigger width reduction a következő tickben
+    // Folyamatcsík animáció
     requestAnimationFrame(() => {
       bar.style.width = '0%';
     });
@@ -134,6 +176,7 @@ function showAlert(message, duration = 3000) {
     }, duration);
   });
 }
+
 
 
 function delay(minMs, maxMs) {
@@ -561,7 +604,7 @@ async function simulateEditAndFillSourceTitle(newValue = "új szöveg") {
     // 4. Check autosave, and click Save if enabled
 	const autoSaveEnabled = true;
 	if (!autoSaveEnabled) {
-		await showAlert("Szerkesztés lehetséges mentés előtt...", 5000);
+		await showAlert("Szerkesztés lehetséges mentés előtt...", 5000, "warning");
 	} else {
 		await showAlert("Új forrás cím mentése...", 1000);
 	}
@@ -575,7 +618,7 @@ async function simulateEditAndFillSourceTitle(newValue = "új szöveg") {
 		saveButton.click();
 		} else {
 		//alert("A 'Mentés' gomb nem aktív vagy nem található, változások elvetése");
-		await showAlert("Mentés' gomb nem aktív vagy nem található, változások elvetése", 2000);
+		await showAlert("Mentés' gomb nem aktív vagy nem található, változások elvetése", 2000, "warning");
 		const cancelButton = document.querySelector('[data-testid="source-cancel-button"]');
 		//here might check button presence but assumed
 		cancelButton.click();
@@ -879,15 +922,17 @@ async function handleSourceProcessing() {
 
   if (count === 1) {
     console.log("[handleSourceProcessing] Egy nyitott panel van → processOneSource() meghívása...");
-	await showAlert("Elindítom az egyetlen nyitott forrás címének feldolgozását", 3000);	
-    await processOneSource();
+	await showAlert("Elindítom az egyetlen nyitott forrás címének feldolgozását...", 3000, "success");	
+    	await processOneSource();
+	await showAlert("...befejeztem az egyetlen nyitott forrás címének feldolgozását.", 3000, "success");
   } else if (count === 0) {
     console.log("[handleSourceProcessing] Nincs nyitott panel → processSourceList() meghívása...");
-	await showAlert("Elindítom az összes forrás cím feldolgozását", 3000);
-    await processSourceList();
+	await showAlert("Elindítom az összes forrás cím feldolgozását...", 3000, "success");
+    	await processSourceList();
+	await showAlert("...befejeztem az összes forrás címének feldolgozását.", 3000, "success");
   } else {
     console.warn("[handleSourceProcessing] Több nyitott panel van. A feldolgozás leáll.");
-	await showAlert("Több forrás panel is nyitva van, nem indul feldolgozás", 3000);
+	await showAlert("Több forrás panel is nyitva van, nem indul feldolgozás", 3000, "warning");
   }
 }
 
@@ -898,8 +943,12 @@ await loadShortLabelCache();
 //console.log("window.shortLabelCache tartalam:", window.shortLabelCache);
 
 loadMaterialIcons();
-handleSourceProcessing();
-await showAlert("Befejeződött a feldolgozás.", 2000);
+await handleSourceProcessing();
+//await showAlert("Befejeződött a feldolgozás.", 6000, "success");
+//await showAlert("Sikeresen mentve!", 3000, "success");
+//await showAlert("Figyelem: ellenőrizd az adatokat!", 4000, "warning");
+//await showAlert("Hiba történt a mentés során!", 5000, "error");
+
 
 }
 
